@@ -8,7 +8,9 @@ local gui = Instance.new("ScreenGui")
 gui.Name = "MozCraft"
 gui.Parent = CoreGui
 
+--------------------------------------------------
 -- SOUNDS
+--------------------------------------------------
 local clickSound = Instance.new("Sound")
 clickSound.SoundId = "rbxassetid://535716488"
 clickSound.Volume = 1
@@ -26,17 +28,21 @@ local function playTypingSound()
 	game:GetService("Debris"):AddItem(s,1)
 end
 
+--------------------------------------------------
 -- TOGGLE BUTTON
+--------------------------------------------------
 local toggle = Instance.new("ImageButton")
 toggle.Size = UDim2.new(0,60,0,60)
 toggle.Position = UDim2.new(0,20,0.5,-30)
-toggle.Image = "rbxassetid://126860634030878"
+toggle.Image = "rbxassetid://100389947609805"
 toggle.BackgroundColor3 = Color3.fromRGB(0,0,0)
 toggle.BackgroundTransparency = 0.3
 toggle.Parent = gui
 Instance.new("UICorner",toggle).CornerRadius = UDim.new(1,0)
 
+--------------------------------------------------
 -- MAIN GUI
+--------------------------------------------------
 local main = Instance.new("Frame")
 main.Size = UDim2.new(0,450,0,400)
 main.Position = UDim2.new(0.5,-225,0.5,-200)
@@ -50,7 +56,9 @@ toggle.MouseButton1Click:Connect(function()
 	main.Visible = not main.Visible
 end)
 
+--------------------------------------------------
 -- TITLE
+--------------------------------------------------
 local title = Instance.new("TextLabel")
 title.Text = "Inventory"
 title.Size = UDim2.new(1,0,0,40)
@@ -60,7 +68,9 @@ title.Font = Enum.Font.GothamBold
 title.TextSize = 22
 title.Parent = main
 
--- SEARCH LABEL & BOX
+--------------------------------------------------
+-- SEARCH LABEL + BOX
+--------------------------------------------------
 local searchLabel = Instance.new("TextLabel")
 searchLabel.Text = "Search"
 searchLabel.Size = UDim2.new(1,-20,0,15)
@@ -75,7 +85,7 @@ searchLabel.Parent = main
 local search = Instance.new("TextBox")
 search.Size = UDim2.new(1,-20,0,30)
 search.Position = UDim2.new(0,10,0,55)
-search.PlaceholderText = "" -- removed placeholder text
+search.PlaceholderText = ""
 search.Text = ""
 search.BackgroundColor3 = Color3.fromRGB(30,30,30)
 search.TextColor3 = Color3.new(1,1,1)
@@ -86,7 +96,9 @@ search:GetPropertyChangedSignal("Text"):Connect(function()
 	playTypingSound()
 end)
 
+--------------------------------------------------
 -- SWIPEABLE TAB BAR
+--------------------------------------------------
 local tabScroll = Instance.new("ScrollingFrame")
 tabScroll.Size = UDim2.new(1,-20,0,35)
 tabScroll.Position = UDim2.new(0,10,0,90)
@@ -101,20 +113,26 @@ tabLayout.FillDirection = Enum.FillDirection.Horizontal
 tabLayout.Padding = UDim.new(0,5)
 tabLayout.Parent = tabScroll
 
+--------------------------------------------------
 -- CONTENT HOLDER
+--------------------------------------------------
 local holder = Instance.new("Frame")
-holder.Size = UDim2.new(1,-20,1,-130)
+holder.Size = UDim2.new(1,-20,1,-140)
 holder.Position = UDim2.new(0,10,0,125)
 holder.BackgroundTransparency = 1
 holder.Parent = main
 
+--------------------------------------------------
 -- STORAGE
+--------------------------------------------------
 local MozCraft = {}
 local pages = {}
 local allSlots = {}
 local favorites = {}
 
+--------------------------------------------------
 -- HOVER + SHRINK EFFECT
+--------------------------------------------------
 local function applyHoverShrink(frame)
 	local normal = frame.Size
 	local shrink = UDim2.new(frame.Size.X.Scale, frame.Size.X.Offset-5, frame.Size.Y.Scale, frame.Size.Y.Offset-5)
@@ -132,7 +150,9 @@ local function applyHoverShrink(frame)
 	end)
 end
 
+--------------------------------------------------
 -- CREATE TAB
+--------------------------------------------------
 function MozCraft:createTab(name)
 	if pages[name] then return end
 
@@ -166,20 +186,26 @@ function MozCraft:createTab(name)
 	btn.MouseButton1Click:Connect(function()
 		clickSound:Play()
 		for _,p in pairs(pages) do p.Visible=false end
-		page.Visible=true
+		page.Visible = true
 	end)
 
 	pages[name] = page
 	tabScroll.CanvasSize = UDim2.new(0, tabLayout.AbsoluteContentSize.X + 20,0,0)
 end
 
+--------------------------------------------------
 -- DEFAULT TABS
+--------------------------------------------------
 MozCraft:createTab("Favorites")
 MozCraft:createTab("All")
 
+--------------------------------------------------
 -- CREATE SLOT
+--------------------------------------------------
 function MozCraft:createSlot(data)
-	if not pages[data.Tab] then self:createTab(data.Tab) end
+	if not pages[data.Tab] then
+		self:createTab(data.Tab)
+	end
 
 	local function buildSlot(parent)
 		local slot = Instance.new("TextButton")
@@ -251,24 +277,28 @@ function MozCraft:createSlot(data)
 		return slot
 	end
 
-	table.insert(allSlots,data)
-	buildSlot(pages[data.Tab])
+	-- Add slot to main tab
+	local slot = buildSlot(pages[data.Tab])
+	-- Add slot to All tab
 	buildSlot(pages["All"])
 end
 
--- ADD DEFAULT RANDOM SLOT
+--------------------------------------------------
+-- DEFAULT SLOT (in All)
+--------------------------------------------------
 MozCraft:createSlot({
 	Tab = "All",
-	Name = "Random",
+	Name = "DefaultSlot",
 	Icon = 106756897158809,
-	Logic = "Execute",
-	Script = "print('Random slot executed!')",
-	Transparency = 0
+	Script = "https://example.com/defaultslot",
+	Logic = "Execute"
 })
 
+--------------------------------------------------
 -- SEARCH FUNCTIONALITY
+--------------------------------------------------
 search:GetPropertyChangedSignal("Text"):Connect(function()
-	playTypingSound()
+	typingSound:Play()
 	local txt = string.lower(search.Text)
 	for _,page in pairs(pages) do
 		for _,slot in pairs(page:GetChildren()) do
@@ -279,7 +309,9 @@ search:GetPropertyChangedSignal("Text"):Connect(function()
 	end
 end)
 
+--------------------------------------------------
 -- KEYBIND: Toggle GUI
+--------------------------------------------------
 UserInputService.InputBegan:Connect(function(input,gpe)
 	if gpe then return end
 	if input.KeyCode == Enum.KeyCode.I then
@@ -288,4 +320,7 @@ UserInputService.InputBegan:Connect(function(input,gpe)
 	end
 end)
 
+--------------------------------------------------
+-- RETURN MozCraft
+--------------------------------------------------
 return MozCraft
