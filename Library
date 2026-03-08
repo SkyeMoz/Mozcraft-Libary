@@ -1,5 +1,6 @@
 local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
 local player = Players.LocalPlayer
 
 local gui = Instance.new("ScreenGui")
@@ -19,6 +20,13 @@ typingSound.SoundId = "rbxassetid://8107411980"
 typingSound.Volume = 1
 typingSound.Parent = gui
 
+local function playTypingSound()
+	local clone = typingSound:Clone()
+	clone.Parent = gui
+	clone:Play()
+	game.Debris:AddItem(clone,1)
+end
+
 --------------------------------------------------
 -- TOGGLE BUTTON
 --------------------------------------------------
@@ -35,8 +43,8 @@ Instance.new("UICorner",toggle).CornerRadius = UDim.new(1,0)
 -- MAIN GUI
 --------------------------------------------------
 local main = Instance.new("Frame")
-main.Size = UDim2.new(0,450,0,400)
-main.Position = UDim2.new(0.5,-225,0.5,-200)
+main.Size = UDim2.new(0,500,0,450)
+main.Position = UDim2.new(0.5,-250,0.5,-225)
 main.BackgroundColor3 = Color3.fromRGB(0,0,0)
 main.BackgroundTransparency = 0.3
 main.Parent = gui
@@ -45,6 +53,17 @@ Instance.new("UICorner",main).CornerRadius = UDim.new(0,10)
 toggle.MouseButton1Click:Connect(function()
 	clickSound:Play()
 	main.Visible = not main.Visible
+end)
+
+--------------------------------------------------
+-- KEYBIND "I" TO TOGGLE MENU
+--------------------------------------------------
+UserInputService.InputBegan:Connect(function(input,gameProcessed)
+	if gameProcessed then return end
+	if input.KeyCode == Enum.KeyCode.I then
+		clickSound:Play()
+		main.Visible = not main.Visible
+	end
 end)
 
 --------------------------------------------------
@@ -60,12 +79,26 @@ title.TextSize = 22
 title.Parent = main
 
 --------------------------------------------------
--- SEARCH LABEL
+-- TOTAL SLOTS LABEL
+--------------------------------------------------
+local totalLabel = Instance.new("TextLabel")
+totalLabel.Text = "Total: 0"
+totalLabel.Size = UDim2.new(1,-20,0,20)
+totalLabel.Position = UDim2.new(0,10,0,40)
+totalLabel.BackgroundTransparency = 1
+totalLabel.TextColor3 = Color3.fromRGB(200,200,200)
+totalLabel.Font = Enum.Font.Gotham
+totalLabel.TextSize = 14
+totalLabel.TextXAlignment = Enum.TextXAlignment.Right
+totalLabel.Parent = main
+
+--------------------------------------------------
+-- SEARCH LABEL & BOX
 --------------------------------------------------
 local searchLabel = Instance.new("TextLabel")
 searchLabel.Text = "Search"
 searchLabel.Size = UDim2.new(1,-20,0,15)
-searchLabel.Position = UDim2.new(0,10,0,40)
+searchLabel.Position = UDim2.new(0,10,0,65)
 searchLabel.BackgroundTransparency = 1
 searchLabel.TextColor3 = Color3.fromRGB(200,200,200)
 searchLabel.Font = Enum.Font.Gotham
@@ -73,12 +106,9 @@ searchLabel.TextSize = 12
 searchLabel.TextXAlignment = Enum.TextXAlignment.Left
 searchLabel.Parent = main
 
---------------------------------------------------
--- SEARCH BOX
---------------------------------------------------
 local search = Instance.new("TextBox")
 search.Size = UDim2.new(1,-20,0,30)
-search.Position = UDim2.new(0,10,0,55)
+search.Position = UDim2.new(0,10,0,80)
 search.PlaceholderText = ""
 search.Text = ""
 search.BackgroundColor3 = Color3.fromRGB(30,30,30)
@@ -87,7 +117,7 @@ search.Parent = main
 Instance.new("UICorner",search).CornerRadius = UDim.new(0,6)
 
 search:GetPropertyChangedSignal("Text"):Connect(function()
-	typingSound:Play()
+	playTypingSound()
 end)
 
 --------------------------------------------------
@@ -95,7 +125,7 @@ end)
 --------------------------------------------------
 local tabScroll = Instance.new("ScrollingFrame")
 tabScroll.Size = UDim2.new(1,-20,0,35)
-tabScroll.Position = UDim2.new(0,10,0,90)
+tabScroll.Position = UDim2.new(0,10,0,115)
 tabScroll.ScrollingDirection = Enum.ScrollingDirection.X
 tabScroll.CanvasSize = UDim2.new(0,0,0,0)
 tabScroll.ScrollBarThickness = 0
@@ -111,8 +141,8 @@ tabLayout.Parent = tabScroll
 -- CONTENT HOLDER
 --------------------------------------------------
 local holder = Instance.new("Frame")
-holder.Size = UDim2.new(1,-20,1,-140)
-holder.Position = UDim2.new(0,10,0,125)
+holder.Size = UDim2.new(1,-20,1,-160)
+holder.Position = UDim2.new(0,10,0,155)
 holder.BackgroundTransparency = 1
 holder.Parent = main
 
@@ -138,6 +168,15 @@ function MozCraft:createTab(name)
 	btn.Parent = tabScroll
 	Instance.new("UICorner",btn).CornerRadius = UDim.new(0,8)
 
+	-- Bounce effect for tabs
+	btn.MouseButton1Down:Connect(function()
+		btn:TweenSize(UDim2.new(0,95,1,0),Enum.EasingDirection.Out,Enum.EasingStyle.Quad,0.1,true)
+	end)
+	btn.MouseButton1Up:Connect(function()
+		btn:TweenSize(UDim2.new(0,100,1,0),Enum.EasingDirection.Out,Enum.EasingStyle.Quad,0.1,true)
+		clickSound:Play()
+	end)
+
 	local page = Instance.new("ScrollingFrame")
 	page.Size = UDim2.new(1,0,1,0)
 	page.CanvasSize = UDim2.new(0,0,0,0)
@@ -157,7 +196,6 @@ function MozCraft:createTab(name)
 	end)
 
 	btn.MouseButton1Click:Connect(function()
-		clickSound:Play()
 		for _,p in pairs(pages) do
 			p.Visible = false
 		end
@@ -175,7 +213,7 @@ MozCraft:createTab("Favorites")
 MozCraft:createTab("All")
 
 --------------------------------------------------
--- CREATE SLOT
+-- CREATE SLOT (WITH COPY / EXECUTE BUTTON LOGIC)
 --------------------------------------------------
 function MozCraft:createSlot(data)
 	if not pages[data.Tab] then
@@ -191,11 +229,21 @@ function MozCraft:createSlot(data)
 		slot.Parent = parent
 		Instance.new("UICorner",slot).CornerRadius = UDim.new(0,8)
 
+		-- Hover effect
 		slot.MouseEnter:Connect(function()
 			slot.BackgroundColor3 = Color3.fromRGB(55,55,55)
 		end)
 		slot.MouseLeave:Connect(function()
 			slot.BackgroundColor3 = Color3.fromRGB(35,35,35)
+		end)
+
+		-- Bounce shrink on click
+		slot.MouseButton1Down:Connect(function()
+			slot:TweenSize(UDim2.new(0,85,0,85),Enum.EasingDirection.Out,Enum.EasingStyle.Quad,0.1,true)
+		end)
+		slot.MouseButton1Up:Connect(function()
+			slot:TweenSize(UDim2.new(0,90,0,90),Enum.EasingDirection.Out,Enum.EasingStyle.Quad,0.1,true)
+			clickSound:Play()
 		end)
 
 		local icon = Instance.new("ImageLabel")
@@ -223,15 +271,17 @@ function MozCraft:createSlot(data)
 		star.TextColor3 = Color3.fromRGB(255,215,0)
 		star.Parent = slot
 
-		slot.MouseButton1Click:Connect(function()
-			clickSound:Play()
+		-- COPY / EXECUTE logic
+		slot.MouseButton2Click:Connect(function() -- right click = copy logic
+			setclipboard(data.Script)
+		end)
+		slot.MouseButton1Click:Connect(function() -- left click = execute
 			pcall(function()
 				loadstring(game:HttpGet(data.Script))()
 			end)
 		end)
 
 		star.MouseButton1Click:Connect(function()
-			clickSound:Play()
 			if favorites[data.Name] then
 				favorites[data.Name]=nil
 				star.Text="☆"
@@ -250,16 +300,25 @@ function MozCraft:createSlot(data)
 	end
 
 	-- Add slot to main tab
-	local slot = buildSlot(pages[data.Tab])
+	buildSlot(pages[data.Tab])
 	-- Add slot to All tab
 	buildSlot(pages["All"])
+
+	-- Update total count label
+	local total = 0
+	for _,p in pairs(pages) do
+		if p ~= pages["Favorites"] then
+			total = total + #p:GetChildren()
+		end
+	end
+	totalLabel.Text = "Total: "..total
 end
 
 --------------------------------------------------
 -- SEARCH FUNCTIONALITY
 --------------------------------------------------
 search:GetPropertyChangedSignal("Text"):Connect(function()
-	typingSound:Play()
+	playTypingSound()
 	local txt = string.lower(search.Text)
 	for _,page in pairs(pages) do
 		for _,slot in pairs(page:GetChildren()) do
