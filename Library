@@ -1,5 +1,4 @@
--- MozCraft Library v3 - Favorites & All Tab
-
+-- MozCraft Library v3.1 - Favorites & All + Swipeable Tabs
 local CoreGui = game:GetService("CoreGui")
 local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
@@ -12,6 +11,7 @@ local gui = Instance.new("ScreenGui")
 gui.Name = "MozCraftRayfield"
 gui.Parent = CoreGui
 
+-- Click sound
 local sound = Instance.new("Sound")
 sound.SoundId = "rbxassetid://12222216"
 sound.Volume = 1
@@ -60,7 +60,7 @@ search.TextSize = 14
 search.Parent = main
 Instance.new("UICorner",search).CornerRadius = UDim.new(0,6)
 
--- Tab scroll
+-- Tab scroll (swipeable)
 local tabScroll = Instance.new("ScrollingFrame")
 tabScroll.Size = UDim2.new(1,-20,0,35)
 tabScroll.Position = UDim2.new(0,10,0,80)
@@ -99,10 +99,9 @@ local function saveFavorites()
 	writefile(saveFile, HttpService:JSONEncode(favorites))
 end
 
--- MozCraft API
 local MozCraft = {}
 
--- Create Tab
+-- Create tab
 function MozCraft:createTab(name)
 	if pages[name] then return end
 	local btn = Instance.new("TextButton")
@@ -144,25 +143,21 @@ function MozCraft:createTab(name)
 	pages[name] = page
 end
 
--- Helper: duplicate slot for Favorites Tab
-local function createFavoriteSlot(origData)
-	if not pages["Favorites"] then
-		MozCraft:createTab("Favorites")
-	end
+-- Duplicate slot for Favorites tab
+local function createFavoriteSlot(origSlot)
+	if not pages["Favorites"] then MozCraft:createTab("Favorites") end
 	local favPage = pages["Favorites"]
-	local slot = origData:Clone()
-	slot.Parent = favPage
-	slot.Visible = true
+	local clone = origSlot:Clone()
+	clone.Parent = favPage
+	clone.Visible = true
 end
 
--- Helper: update All Tab
+-- Update All Tab
 local function updateAllTab()
-	if not pages["All"] then
-		MozCraft:createTab("All")
-	end
+	if not pages["All"] then MozCraft:createTab("All") end
 	local allPage = pages["All"]
 	allPage:ClearAllChildren()
-	table.sort(allSlots, function(a,b) return string.lower(a.Name) < string.lower(b.Name) end)
+	table.sort(allSlots,function(a,b) return string.lower(a.Name)<string.lower(b.Name) end)
 	for _,slot in pairs(allSlots) do
 		local clone = slot:Clone()
 		clone.Parent = allPage
@@ -170,11 +165,9 @@ local function updateAllTab()
 	end
 end
 
--- Create Slot
+-- Create slot
 function MozCraft:createSlot(data)
-	if not pages[data.Tab] then
-		self:createTab(data.Tab)
-	end
+	if not pages[data.Tab] then self:createTab(data.Tab) end
 	local page = pages[data.Tab]
 
 	local slot = Instance.new("TextButton")
@@ -185,7 +178,6 @@ function MozCraft:createSlot(data)
 	slot.Name = data.Name
 	slot.Parent = page
 
-	-- Icon
 	local iconImg = Instance.new("ImageLabel")
 	iconImg.Size = UDim2.new(0,60,0,60)
 	iconImg.Position = UDim2.new(0.5,-30,0,5)
@@ -193,7 +185,6 @@ function MozCraft:createSlot(data)
 	iconImg.Image = "rbxassetid://"..data.Icon
 	iconImg.Parent = slot
 
-	-- Text label
 	local text = Instance.new("TextLabel")
 	text.Size = UDim2.new(1,0,0,20)
 	text.Position = UDim2.new(0,0,1,-22)
@@ -204,7 +195,6 @@ function MozCraft:createSlot(data)
 	text.TextSize = 14
 	text.Parent = slot
 
-	-- Favorite star
 	local star = Instance.new("TextButton")
 	star.Size = UDim2.new(0,18,0,18)
 	star.Position = UDim2.new(1,-20,0,2)
@@ -215,49 +205,38 @@ function MozCraft:createSlot(data)
 	star.TextSize = 18
 	star.Parent = slot
 
-	-- Hover animation
-	slot.MouseEnter:Connect(function() slot.BackgroundTransparency = 0 end)
-	slot.MouseLeave:Connect(function() slot.BackgroundTransparency = 0.2 end)
+	slot.MouseEnter:Connect(function() slot.BackgroundTransparency=0 end)
+	slot.MouseLeave:Connect(function() slot.BackgroundTransparency=0.2 end)
 
-	-- Click executes script
 	slot.MouseButton1Click:Connect(function()
 		sound:Play()
 		pcall(function() loadstring(game:HttpGet(data.Script))() end)
 	end)
 
-	-- Add to All Slots
 	table.insert(allSlots,slot)
 	updateAllTab()
 
-	-- Favorite toggle
 	star.MouseButton1Click:Connect(function()
 		if favorites[data.Name] then
 			favorites[data.Name] = nil
 			star.Text = "☆"
-			-- Remove from Favorites Tab
 			if pages["Favorites"] then
 				for _,f in pairs(pages["Favorites"]:GetChildren()) do
-					if f:IsA("TextButton") and f.Name == data.Name then
-						f:Destroy()
-					end
+					if f:IsA("TextButton") and f.Name==data.Name then f:Destroy() end
 				end
 			end
 		else
 			favorites[data.Name] = true
 			star.Text = "★"
-			-- Copy to Favorites Tab
 			createFavoriteSlot(slot)
 		end
 		saveFavorites()
 	end)
 
-	-- Copy to Favorites if already favorited
-	if favorites[data.Name] then
-		createFavoriteSlot(slot)
-	end
+	if favorites[data.Name] then createFavoriteSlot(slot) end
 end
 
--- Search system
+-- Search
 search:GetPropertyChangedSignal("Text"):Connect(function()
 	local txt = string.lower(search.Text)
 	for _,page in pairs(pages) do
@@ -269,15 +248,17 @@ search:GetPropertyChangedSignal("Text"):Connect(function()
 	end
 end)
 
--- Update tab scroll
 tabLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
 	tabScroll.CanvasSize = UDim2.new(0,tabLayout.AbsoluteContentSize.X + 10,0,0)
 end)
 
--- Toggle GUI
 toggle.MouseButton1Click:Connect(function()
 	sound:Play()
 	main.Visible = not main.Visible
 end)
+
+-- Create Favorites & All tabs at start
+MozCraft:createTab("Favorites")
+MozCraft:createTab("All")
 
 return MozCraft
