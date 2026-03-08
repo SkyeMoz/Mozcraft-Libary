@@ -1,20 +1,25 @@
--- MozCraft Rayfield-style Core GUI
-
+-- MozCraft Library v2 (Full Rayfield-style)
 local CoreGui = game:GetService("CoreGui")
-local CLICK_SOUND = "rbxassetid://12222216"
+local HttpService = game:GetService("HttpService")
+local Players = game:GetService("Players")
 
--- GUI Root
+-- Save path for favorites (per player)
+local player = Players.LocalPlayer
+local saveFolder = "MozCraftFavorites"
+local saveFile = saveFolder.."/"..player.UserId..".json"
+
+-- GUI root
 local gui = Instance.new("ScreenGui")
 gui.Name = "MozCraftRayfield"
 gui.Parent = CoreGui
 
 -- Click sound
 local sound = Instance.new("Sound")
-sound.SoundId = CLICK_SOUND
+sound.SoundId = "rbxassetid://12222216"
 sound.Volume = 1
 sound.Parent = gui
 
--- Toggle button
+-- Toggle
 local toggle = Instance.new("ImageButton")
 toggle.Size = UDim2.new(0,60,0,60)
 toggle.Position = UDim2.new(0,20,0.5,-30)
@@ -26,8 +31,8 @@ Instance.new("UICorner",toggle).CornerRadius = UDim.new(1,0)
 
 -- Main frame
 local main = Instance.new("Frame")
-main.Size = UDim2.new(0,450,0,380)
-main.Position = UDim2.new(0.5,-225,0.5,-190)
+main.Size = UDim2.new(0,450,0,400)
+main.Position = UDim2.new(0.5,-225,0.5,-200)
 main.BackgroundColor3 = Color3.fromRGB(0,0,0)
 main.BackgroundTransparency = 0.3
 main.Parent = gui
@@ -36,7 +41,6 @@ Instance.new("UICorner",main).CornerRadius = UDim.new(0,10)
 -- Title
 local title = Instance.new("TextLabel")
 title.Size = UDim2.new(1,0,0,40)
-title.Position = UDim2.new(0,0,0,0)
 title.BackgroundTransparency = 1
 title.Text = "MozCraft"
 title.TextColor3 = Color3.new(1,1,1)
@@ -44,7 +48,7 @@ title.Font = Enum.Font.GothamBold
 title.TextSize = 22
 title.Parent = main
 
--- SEARCH BAR
+-- Search bar
 local search = Instance.new("TextBox")
 search.Size = UDim2.new(1,-20,0,30)
 search.Position = UDim2.new(0,10,0,45)
@@ -58,7 +62,7 @@ search.TextSize = 14
 search.Parent = main
 Instance.new("UICorner",search).CornerRadius = UDim.new(0,6)
 
--- TAB SCROLL (swipeable)
+-- Tab scroll (swipeable)
 local tabScroll = Instance.new("ScrollingFrame")
 tabScroll.Size = UDim2.new(1,-20,0,35)
 tabScroll.Position = UDim2.new(0,10,0,80)
@@ -73,24 +77,37 @@ tabLayout.FillDirection = Enum.FillDirection.Horizontal
 tabLayout.Padding = UDim.new(0,6)
 tabLayout.Parent = tabScroll
 
--- CONTENT HOLDER
+-- Content holder
 local contentHolder = Instance.new("Frame")
-contentHolder.Size = UDim2.new(1,-20,1,-125)
+contentHolder.Size = UDim2.new(1,-20,1,-135)
 contentHolder.Position = UDim2.new(0,10,0,115)
 contentHolder.BackgroundTransparency = 1
 contentHolder.Parent = main
 
--- Storage
+-- Library storage
 local pages = {}
+local favorites = {}
 
--- PUBLIC API (Rayfield-style functions)
-local Rayfield = {}
+-- Load favorites from file
+pcall(function()
+	if not isfolder(saveFolder) then makefolder(saveFolder) end
+	if isfile(saveFile) then
+		favorites = HttpService:JSONDecode(readfile(saveFile))
+	end
+end)
 
--- Create Tab
-function Rayfield:createTab(name)
+-- Helper: save favorites
+local function saveFavorites()
+	writefile(saveFile, HttpService:JSONEncode(favorites))
+end
+
+-- Rayfield-like API
+local MozCraft = {}
+
+-- Create tab (auto if missing)
+function MozCraft:createTab(name)
 	if pages[name] then return end
 
-	-- Button
 	local btn = Instance.new("TextButton")
 	btn.Size = UDim2.new(0,100,1,0)
 	btn.BackgroundColor3 = Color3.fromRGB(20,20,20)
@@ -102,7 +119,6 @@ function Rayfield:createTab(name)
 	btn.Parent = tabScroll
 	Instance.new("UICorner",btn).CornerRadius = UDim.new(0,8)
 
-	-- Page
 	local page = Instance.new("ScrollingFrame")
 	page.Size = UDim2.new(1,0,1,0)
 	page.ScrollBarThickness = 6
@@ -131,45 +147,82 @@ function Rayfield:createTab(name)
 	pages[name] = page
 end
 
--- Create Slot
-function Rayfield:createSlot(tab,name,icon,url)
-	local page = pages[tab]
-	if not page then return end
+-- Create slot (Rayfield-style)
+function MozCraft:createSlot(data)
+	-- Auto create tab
+	if not pages[data.Tab] then
+		self:createTab(data.Tab)
+	end
+	local page = pages[data.Tab]
 
 	local slot = Instance.new("TextButton")
 	slot.Size = UDim2.new(0,90,0,90)
 	slot.BackgroundColor3 = Color3.fromRGB(30,30,30)
 	slot.BackgroundTransparency = 0.2
 	slot.Text = ""
-	slot.Name = name
+	slot.Name = data.Name
 	slot.Parent = page
 
+	-- Icon
 	local iconImg = Instance.new("ImageLabel")
 	iconImg.Size = UDim2.new(0,60,0,60)
 	iconImg.Position = UDim2.new(0.5,-30,0,5)
 	iconImg.BackgroundTransparency = 1
-	iconImg.Image = "rbxassetid://"..icon
+	iconImg.Image = "rbxassetid://"..data.Icon
 	iconImg.Parent = slot
 
+	-- Name label
 	local text = Instance.new("TextLabel")
 	text.Size = UDim2.new(1,0,0,20)
 	text.Position = UDim2.new(0,0,1,-22)
 	text.BackgroundTransparency = 1
-	text.Text = name
+	text.Text = data.Name
 	text.TextColor3 = Color3.new(1,1,1)
 	text.Font = Enum.Font.Gotham
 	text.TextSize = 14
 	text.Parent = slot
 
+	-- Favorite star
+	local star = Instance.new("TextButton")
+	star.Size = UDim2.new(0,18,0,18)
+	star.Position = UDim2.new(1,-20,0,2)
+	star.BackgroundTransparency = 1
+	star.Text = favorites[data.Name] and "★" or "☆"
+	star.TextColor3 = Color3.fromRGB(255,215,0)
+	star.Font = Enum.Font.GothamBold
+	star.TextSize = 18
+	star.Parent = slot
+
+	-- Hover animation
+	slot.MouseEnter:Connect(function()
+		slot.BackgroundTransparency = 0
+	end)
+	slot.MouseLeave:Connect(function()
+		slot.BackgroundTransparency = 0.2
+	end)
+
+	-- Slot click
 	slot.MouseButton1Click:Connect(function()
 		sound:Play()
 		pcall(function()
-			loadstring(game:HttpGet(url))()
+			loadstring(game:HttpGet(data.Script))()
 		end)
+	end)
+
+	-- Star click (toggle favorite)
+	star.MouseButton1Click:Connect(function()
+		if favorites[data.Name] then
+			favorites[data.Name] = nil
+			star.Text = "☆"
+		else
+			favorites[data.Name] = true
+			star.Text = "★"
+		end
+		saveFavorites()
 	end)
 end
 
--- SEARCH
+-- Search
 search:GetPropertyChangedSignal("Text"):Connect(function()
 	local txt = string.lower(search.Text)
 	for _,page in pairs(pages) do
@@ -181,16 +234,15 @@ search:GetPropertyChangedSignal("Text"):Connect(function()
 	end
 end)
 
--- Update tab scroll canvas size
+-- Update tab scroll size
 tabLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
 	tabScroll.CanvasSize = UDim2.new(0,tabLayout.AbsoluteContentSize.X + 10,0,0)
 end)
 
--- TOGGLE
+-- Toggle GUI
 toggle.MouseButton1Click:Connect(function()
 	sound:Play()
 	main.Visible = not main.Visible
 end)
 
--- Default return
-return Rayfield
+return MozCraft
