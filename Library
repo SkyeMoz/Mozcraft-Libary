@@ -34,7 +34,7 @@ end
 local toggle = Instance.new("ImageButton")
 toggle.Size = UDim2.new(0,60,0,60)
 toggle.Position = UDim2.new(0,20,0.5,-30)
-toggle.Image = "rbxassetid://100389947609805"
+toggle.Image = "rbxassetid://YOUR_NEW_CIRCLE_LOGO_ID" -- replace with your circle logo
 toggle.BackgroundColor3 = Color3.fromRGB(0,0,0)
 toggle.BackgroundTransparency = 0.3
 toggle.Parent = gui
@@ -69,7 +69,7 @@ title.TextSize = 22
 title.Parent = main
 
 --------------------------------------------------
--- SEARCH LABEL + BOX
+-- SEARCH LABEL
 --------------------------------------------------
 local searchLabel = Instance.new("TextLabel")
 searchLabel.Text = "Search"
@@ -82,10 +82,13 @@ searchLabel.TextSize = 12
 searchLabel.TextXAlignment = Enum.TextXAlignment.Left
 searchLabel.Parent = main
 
+--------------------------------------------------
+-- SEARCH BOX
+--------------------------------------------------
 local search = Instance.new("TextBox")
 search.Size = UDim2.new(1,-20,0,30)
 search.Position = UDim2.new(0,10,0,55)
-search.PlaceholderText = ""
+search.PlaceholderText = "" -- no placeholder
 search.Text = ""
 search.BackgroundColor3 = Color3.fromRGB(30,30,30)
 search.TextColor3 = Color3.new(1,1,1)
@@ -186,7 +189,7 @@ function MozCraft:createTab(name)
 	btn.MouseButton1Click:Connect(function()
 		clickSound:Play()
 		for _,p in pairs(pages) do p.Visible=false end
-		page.Visible = true
+		page.Visible=true
 	end)
 
 	pages[name] = page
@@ -203,9 +206,7 @@ MozCraft:createTab("All")
 -- CREATE SLOT
 --------------------------------------------------
 function MozCraft:createSlot(data)
-	if not pages[data.Tab] then
-		self:createTab(data.Tab)
-	end
+	if not pages[data.Tab] then self:createTab(data.Tab) end
 
 	local function buildSlot(parent)
 		local slot = Instance.new("TextButton")
@@ -277,22 +278,10 @@ function MozCraft:createSlot(data)
 		return slot
 	end
 
-	-- Add slot to main tab
-	local slot = buildSlot(pages[data.Tab])
-	-- Add slot to All tab
+	table.insert(allSlots,data)
+	buildSlot(pages[data.Tab])
 	buildSlot(pages["All"])
 end
-
---------------------------------------------------
--- DEFAULT SLOT (in All)
---------------------------------------------------
-MozCraft:createSlot({
-	Tab = "All",
-	Name = "DefaultSlot",
-	Icon = 106756897158809,
-	Script = "https://example.com/defaultslot",
-	Logic = "Execute"
-})
 
 --------------------------------------------------
 -- SEARCH FUNCTIONALITY
