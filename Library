@@ -3,8 +3,8 @@ local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local HttpService = game:GetService("HttpService")
+local Debris = game:GetService("Debris")
 local player = Players.LocalPlayer
-local RunService = game:GetService("RunService")
 
 --------------------------------------------------
 -- REMOVE OLD GUI
@@ -16,6 +16,7 @@ end
 local gui = Instance.new("ScreenGui")
 gui.Name = "MozCraft"
 gui.Parent = CoreGui
+gui.IgnoreGuiInset = true
 
 --------------------------------------------------
 -- FAVORITES SAVE SYSTEM
@@ -38,26 +39,6 @@ local function saveFavorites()
 end
 
 --------------------------------------------------
--- SLOT POSITIONS SAVE
---------------------------------------------------
-local slotPositionsFile = "MozCraft_SlotPos.json"
-local slotPositions = {}
-
-pcall(function()
-	if readfile and isfile and isfile(slotPositionsFile) then
-		slotPositions = HttpService:JSONDecode(readfile(slotPositionsFile))
-	end
-end)
-
-local function saveSlotPositions()
-	pcall(function()
-		if writefile then
-			writefile(slotPositionsFile, HttpService:JSONEncode(slotPositions))
-		end
-	end)
-end
-
---------------------------------------------------
 -- SOUNDS
 --------------------------------------------------
 local clickSound = Instance.new("Sound")
@@ -74,7 +55,7 @@ local function playTypingSound()
 	local s = typingSoundTemplate:Clone()
 	s.Parent = gui
 	s:Play()
-	game:GetService("Debris"):AddItem(s,1)
+	Debris:AddItem(s,1)
 end
 
 --------------------------------------------------
@@ -93,6 +74,7 @@ Instance.new("UICorner",toggle).CornerRadius = UDim.new(1,0)
 -- HOLD 10s DELETE
 --------------------------------------------------
 local holding = false
+
 toggle.MouseButton1Down:Connect(function()
 	holding = true
 	task.spawn(function()
@@ -106,6 +88,7 @@ toggle.MouseButton1Down:Connect(function()
 		end
 	end)
 end)
+
 toggle.MouseButton1Up:Connect(function()
 	holding = false
 end)
@@ -120,6 +103,46 @@ main.BackgroundColor3 = Color3.fromRGB(40,40,40)
 main.BackgroundTransparency = 0
 main.Parent = gui
 Instance.new("UICorner",main).CornerRadius = UDim.new(0,10)
+
+-- Make draggable
+local dragging = false
+local dragInput, mousePos, framePos
+
+local function updateDrag(input)
+	local delta = input.Position - mousePos
+	main.Position = UDim2.new(
+		framePos.X.Scale,
+		framePos.X.Offset + delta.X,
+		framePos.Y.Scale,
+		framePos.Y.Offset + delta.Y
+	)
+end
+
+main.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		dragging = true
+		mousePos = input.Position
+		framePos = main.Position
+
+		input.Changed:Connect(function()
+			if input.UserInputState == Enum.UserInputState.End then
+				dragging = false
+			end
+		end)
+	end
+end)
+
+main.InputChanged:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+		dragInput = input
+	end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+	if input == dragInput and dragging then
+		updateDrag(input)
+	end
+end)
 
 local mainGradient = Instance.new("UIGradient")
 mainGradient.Color = ColorSequence.new{
@@ -148,7 +171,7 @@ title.TextSize = 22
 title.Parent = main
 
 --------------------------------------------------
--- SEARCH BOX
+-- SEARCH LABEL
 --------------------------------------------------
 local searchLabel = Instance.new("TextLabel")
 searchLabel.Text = "Search"
@@ -161,6 +184,9 @@ searchLabel.TextSize = 12
 searchLabel.TextXAlignment = Enum.TextXAlignment.Left
 searchLabel.Parent = main
 
+--------------------------------------------------
+-- SEARCH BOX
+--------------------------------------------------
 local search = Instance.new("TextBox")
 search.Size = UDim2.new(1,-20,0,30)
 search.Position = UDim2.new(0,10,0,55)
@@ -189,14 +215,22 @@ tabScroll.Parent = main
 
 local tabLayout = Instance.new("UIListLayout")
 tabLayout.FillDirection = Enum.FillDirection.Horizontal
+tabLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left
 tabLayout.Padding = UDim.new(0,5)
 tabLayout.Parent = tabScroll
 
+tabLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+	tabScroll.CanvasSize = UDim2.new(0, tabLayout.AbsoluteContentSize.X + 10, 0, 0)
+end)
+
+--------------------------------------------------
+-- TAB HIGHLIGHT SLIDER
+--------------------------------------------------
 local highlight = Instance.new("Frame")
 highlight.Size = UDim2.new(0,110,1,0)
 highlight.BackgroundTransparency = 0
-highlight.Parent = tabScroll
 highlight.ZIndex = 0
+highlight.Parent = tabScroll
 Instance.new("UICorner",highlight)
 
 local hGradient = Instance.new("UIGradient")
@@ -223,7 +257,7 @@ local pages = {}
 local allSlots = {}
 
 --------------------------------------------------
--- CREATE TAB FUNCTION
+-- CREATE TAB
 --------------------------------------------------
 function MozCraft:createTab(name)
 	if pages[name] then return end
@@ -265,8 +299,11 @@ function MozCraft:createTab(name)
 
 	btn.MouseButton1Click:Connect(function()
 		clickSound:Play()
-		for _,p in pairs(pages) do p.Visible=false end
+		for _,p in pairs(pages) do
+			p.Visible=false
+		end
 		page.Visible=true
+
 		TweenService:Create(
 			highlight,
 			TweenInfo.new(0.25,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),
@@ -275,7 +312,6 @@ function MozCraft:createTab(name)
 	end)
 
 	pages[name] = page
-	tabScroll.CanvasSize = UDim2.new(0, tabLayout.AbsoluteContentSize.X + 20,0,0)
 end
 
 --------------------------------------------------
@@ -284,7 +320,7 @@ end
 MozCraft:createTab("Favorites ⭐")
 
 --------------------------------------------------
--- CREATE SLOT FUNCTION (WITH DRAGGING)
+-- CREATE SLOT WITH DRAGGING
 --------------------------------------------------
 function MozCraft:createSlot(data)
 	if not pages[data.Tab] then self:createTab(data.Tab) end
@@ -332,17 +368,44 @@ function MozCraft:createSlot(data)
 		star.TextColor3 = favorites[data.Name] and Color3.fromRGB(255,221,0) or Color3.fromRGB(150,150,150)
 		star.Parent = slot
 
-		-- SLOT CLICK LOGIC
+		-- Dragging
+		local draggingSlot = false
+		local dragStartPos
+		local slotStartPos
+
+		slot.InputBegan:Connect(function(input)
+			if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+				draggingSlot = true
+				dragStartPos = input.Position
+				slotStartPos = slot.Position
+				clickSound:Play()
+				input.Changed:Connect(function()
+					if input.UserInputState == Enum.UserInputState.End then
+						draggingSlot = false
+					end
+				end)
+			end
+		end)
+
+		slot.InputChanged:Connect(function(input)
+			if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+				while draggingSlot do
+					local delta = UserInputService:GetMouseLocation() - dragStartPos
+					slot.Position = UDim2.new(slotStartPos.X.Scale, slotStartPos.X.Offset + delta.X, slotStartPos.Y.Scale, slotStartPos.Y.Offset + delta.Y)
+					task.wait()
+				end
+			end
+		end)
+
 		slot.MouseButton1Click:Connect(function()
 			clickSound:Play()
-			if data.Logic=="Execute" then
+			if data.Logic == "Execute" then
 				pcall(function() loadstring(game:HttpGet(data.Script))() end)
-			elseif data.Logic=="Copy" then
+			elseif data.Logic == "Copy" then
 				setclipboard(data.Script)
 			end
 		end)
 
-		-- FAVORITES
 		star.MouseButton1Click:Connect(function()
 			clickSound:Play()
 			favorites[data.Name] = not favorites[data.Name]
@@ -364,66 +427,6 @@ function MozCraft:createSlot(data)
 			local clone = slot:Clone()
 			clone.Parent = pages["Favorites ⭐"]
 		end
-
-		-- DRAGGING
-		local dragging, dragInput, dragStart, startPos = false, nil, nil, nil
-		local holdTime = 0.9
-		local holdStart = nil
-
-		slot.InputBegan:Connect(function(input)
-			if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType.Touch then
-				holdStart = tick()
-				dragInput = input
-				dragStart = input.Position
-				startPos = slot.Position
-
-				task.spawn(function()
-					while input and input.UserInputState==Enum.UserInputState.Begin do
-						if tick()-holdStart >= holdTime and not dragging then
-							dragging = true
-							slot.ZIndex = 10
-							slot.Position = UDim2.new(0, slot.AbsolutePosition.X, 0, slot.AbsolutePosition.Y)
-							slot.Parent = gui
-						end
-						task.wait()
-					end
-				end)
-			end
-		end)
-
-		slot.InputChanged:Connect(function(input)
-			if input == dragInput and dragging then
-				dragging = true
-			end
-		end)
-
-		UserInputService.InputChanged:Connect(function(input)
-			if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-				slot.Position = UDim2.new(0, input.Position.X - slot.AbsoluteSize.X/2, 0, input.Position.Y - slot.AbsoluteSize.Y/2)
-			end
-		end)
-
-		UserInputService.InputEnded:Connect(function(input)
-			if dragging and (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) then
-				dragging = false
-				-- Find parent slot page
-				slot.Position = UDim2.new(0, slot.Position.X.Offset, 0, slot.Position.Y.Offset)
-				local posData = {
-					X = slot.Position.X.Offset,
-					Y = slot.Position.Y.Offset,
-					ParentTab = data.Tab
-				}
-				slotPositions[data.Name] = posData
-				saveSlotPositions()
-				slot.Parent = pages[data.Tab]
-			end
-		end)
-
-		-- APPLY SAVED POSITION
-		if slotPositions[data.Name] then
-			slot.Position = UDim2.new(0, slotPositions[data.Name].X, 0, slotPositions[data.Name].Y)
-			slot.Parent = gui -- start in gui, drag will reattach to page
-		end
 	end
 
 	table.insert(allSlots,data)
@@ -431,7 +434,7 @@ function MozCraft:createSlot(data)
 end
 
 --------------------------------------------------
--- SEARCH FUNCTION
+-- SEARCH
 --------------------------------------------------
 search:GetPropertyChangedSignal("Text"):Connect(function()
 	local txt = string.lower(search.Text)
@@ -445,7 +448,7 @@ search:GetPropertyChangedSignal("Text"):Connect(function()
 end)
 
 --------------------------------------------------
--- KEYBIND TOGGLE
+-- KEYBIND
 --------------------------------------------------
 UserInputService.InputBegan:Connect(function(input,gpe)
 	if gpe then return end
