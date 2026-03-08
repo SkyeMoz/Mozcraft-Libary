@@ -69,15 +69,47 @@ toggle.Parent = gui
 Instance.new("UICorner",toggle).CornerRadius = UDim.new(1,0)
 
 --------------------------------------------------
+-- HOLD 10s DELETE
+--------------------------------------------------
+local holding = false
+
+toggle.MouseButton1Down:Connect(function()
+	holding = true
+	task.spawn(function()
+		local start = tick()
+		while holding do
+			if tick()-start >= 10 then
+				gui:Destroy()
+				break
+			end
+			task.wait()
+		end
+	end)
+end)
+
+toggle.MouseButton1Up:Connect(function()
+	holding = false
+end)
+
+--------------------------------------------------
 -- MAIN GUI
 --------------------------------------------------
 local main = Instance.new("Frame")
 main.Size = UDim2.new(0,450,0,400)
 main.Position = UDim2.new(0.5,-225,0.5,-200)
-main.BackgroundColor3 = Color3.fromRGB(0,0,0)
-main.BackgroundTransparency = 0.3
+main.BackgroundColor3 = Color3.fromRGB(40,40,40)
+main.BackgroundTransparency = 0
 main.Parent = gui
 Instance.new("UICorner",main).CornerRadius = UDim.new(0,10)
+
+local mainGradient = Instance.new("UIGradient")
+mainGradient.Color = ColorSequence.new{
+	ColorSequenceKeypoint.new(0,Color3.fromRGB(30,30,30)),
+	ColorSequenceKeypoint.new(0.7,Color3.fromRGB(80,80,80)),
+	ColorSequenceKeypoint.new(1,Color3.fromRGB(180,180,180))
+}
+mainGradient.Rotation = 90
+mainGradient.Parent = main
 
 toggle.MouseButton1Click:Connect(function()
 	clickSound:Play()
@@ -118,7 +150,7 @@ search.Size = UDim2.new(1,-20,0,30)
 search.Position = UDim2.new(0,10,0,55)
 search.PlaceholderText = ""
 search.Text = ""
-search.BackgroundColor3 = Color3.fromRGB(30,30,30)
+search.BackgroundColor3 = Color3.fromRGB(35,35,35)
 search.TextColor3 = Color3.new(1,1,1)
 search.Parent = main
 Instance.new("UICorner",search).CornerRadius = UDim.new(0,6)
@@ -145,6 +177,23 @@ tabLayout.Padding = UDim.new(0,5)
 tabLayout.Parent = tabScroll
 
 --------------------------------------------------
+-- TAB HIGHLIGHT SLIDER
+--------------------------------------------------
+local highlight = Instance.new("Frame")
+highlight.Size = UDim2.new(0,110,1,0)
+highlight.BackgroundTransparency = 0
+highlight.Parent = tabScroll
+highlight.ZIndex = 0
+Instance.new("UICorner",highlight)
+
+local hGradient = Instance.new("UIGradient")
+hGradient.Color = ColorSequence.new{
+	ColorSequenceKeypoint.new(0,Color3.fromRGB(255,170,0)),
+	ColorSequenceKeypoint.new(1,Color3.fromRGB(255,90,0))
+}
+hGradient.Parent = highlight
+
+--------------------------------------------------
 -- CONTENT HOLDER
 --------------------------------------------------
 local holder = Instance.new("Frame")
@@ -169,10 +218,19 @@ function MozCraft:createTab(name)
 	local btn = Instance.new("TextButton")
 	btn.Text = name
 	btn.Size = UDim2.new(0,110,1,0)
-	btn.BackgroundColor3 = Color3.fromRGB(25,25,25)
+	btn.BackgroundColor3 = Color3.fromRGB(35,35,35)
 	btn.TextColor3 = Color3.new(1,1,1)
 	btn.Parent = tabScroll
 	Instance.new("UICorner",btn).CornerRadius = UDim.new(0,8)
+
+	local g = Instance.new("UIGradient")
+	g.Color = ColorSequence.new{
+		ColorSequenceKeypoint.new(0,Color3.fromRGB(25,25,25)),
+		ColorSequenceKeypoint.new(0.7,Color3.fromRGB(80,80,80)),
+		ColorSequenceKeypoint.new(1,Color3.fromRGB(170,170,170))
+	}
+	g.Rotation = 90
+	g.Parent = btn
 
 	local page = Instance.new("ScrollingFrame")
 	page.Size = UDim2.new(1,0,1,0)
@@ -194,8 +252,18 @@ function MozCraft:createTab(name)
 
 	btn.MouseButton1Click:Connect(function()
 		clickSound:Play()
-		for _,p in pairs(pages) do p.Visible=false end
+
+		for _,p in pairs(pages) do
+			p.Visible=false
+		end
+
 		page.Visible=true
+
+		TweenService:Create(
+			highlight,
+			TweenInfo.new(0.25,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),
+			{Position = btn.Position}
+		):Play()
 	end)
 
 	pages[name] = page
@@ -214,14 +282,23 @@ function MozCraft:createSlot(data)
 	if not pages[data.Tab] then self:createTab(data.Tab) end
 
 	local function buildSlot(parent)
+
 		local slot = Instance.new("TextButton")
 		slot.Size = UDim2.new(0,90,0,90)
-		slot.BackgroundColor3 = Color3.fromRGB(35,35,35)
-		slot.BackgroundTransparency = data.Transparency or 0
+		slot.BackgroundColor3 = Color3.fromRGB(40,40,40)
 		slot.Text = ""
 		slot.Name = data.Name
 		slot.Parent = parent
 		Instance.new("UICorner",slot).CornerRadius = UDim.new(0,8)
+
+		local sg = Instance.new("UIGradient")
+		sg.Color = ColorSequence.new{
+			ColorSequenceKeypoint.new(0,Color3.fromRGB(25,25,25)),
+			ColorSequenceKeypoint.new(0.7,Color3.fromRGB(90,90,90)),
+			ColorSequenceKeypoint.new(1,Color3.fromRGB(180,180,180))
+		}
+		sg.Rotation = 90
+		sg.Parent = slot
 
 		local icon = Instance.new("ImageLabel")
 		icon.Size = UDim2.new(0,60,0,60)
@@ -245,7 +322,7 @@ function MozCraft:createSlot(data)
 		star.Size = UDim2.new(0,18,0,18)
 		star.Position = UDim2.new(1,-20,0,2)
 		star.BackgroundTransparency = 1
-		star.TextColor3 = Color3.fromRGB(255,215,0)
+		star.TextColor3 = favorites[data.Name] and Color3.fromRGB(255,221,0) or Color3.fromRGB(150,150,150)
 		star.Parent = slot
 
 		slot.MouseButton1Click:Connect(function()
@@ -259,8 +336,12 @@ function MozCraft:createSlot(data)
 
 		star.MouseButton1Click:Connect(function()
 			clickSound:Play()
+
 			favorites[data.Name] = not favorites[data.Name]
 			saveFavorites()
+
+			star.Text = favorites[data.Name] and "★" or "☆"
+			star.TextColor3 = favorites[data.Name] and Color3.fromRGB(255,221,0) or Color3.fromRGB(150,150,150)
 
 			for _,v in pairs(pages["Favorites ⭐"]:GetChildren()) do
 				if v.Name==data.Name then v:Destroy() end
@@ -276,8 +357,6 @@ function MozCraft:createSlot(data)
 			local clone = slot:Clone()
 			clone.Parent = pages["Favorites ⭐"]
 		end
-
-		return slot
 	end
 
 	table.insert(allSlots,data)
