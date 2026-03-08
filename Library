@@ -44,8 +44,8 @@ Instance.new("UICorner",toggle).CornerRadius = UDim.new(1,0)
 -- MAIN GUI
 --------------------------------------------------
 local main = Instance.new("Frame")
-main.Size = UDim2.new(0,450,0,450)
-main.Position = UDim2.new(0.5,-225,0.5,-225)
+main.Size = UDim2.new(0,450,0,400)
+main.Position = UDim2.new(0.5,-225,0.5,-200)
 main.BackgroundColor3 = Color3.fromRGB(0,0,0)
 main.BackgroundTransparency = 0.3
 main.Parent = gui
@@ -69,26 +69,12 @@ title.TextSize = 22
 title.Parent = main
 
 --------------------------------------------------
--- TOTAL SLOTS LABEL
---------------------------------------------------
-local totalLabel = Instance.new("TextLabel")
-totalLabel.Text = "Total: 0"
-totalLabel.Size = UDim2.new(1,-20,0,15)
-totalLabel.Position = UDim2.new(0,10,0,35)
-totalLabel.BackgroundTransparency = 1
-totalLabel.TextColor3 = Color3.fromRGB(200,200,200)
-totalLabel.Font = Enum.Font.Gotham
-totalLabel.TextSize = 12
-totalLabel.TextXAlignment = Enum.TextXAlignment.Left
-totalLabel.Parent = main
-
---------------------------------------------------
 -- SEARCH LABEL & BOX
 --------------------------------------------------
 local searchLabel = Instance.new("TextLabel")
 searchLabel.Text = "Search"
 searchLabel.Size = UDim2.new(1,-20,0,15)
-searchLabel.Position = UDim2.new(0,10,0,55)
+searchLabel.Position = UDim2.new(0,10,0,40)
 searchLabel.BackgroundTransparency = 1
 searchLabel.TextColor3 = Color3.fromRGB(200,200,200)
 searchLabel.Font = Enum.Font.Gotham
@@ -98,7 +84,7 @@ searchLabel.Parent = main
 
 local search = Instance.new("TextBox")
 search.Size = UDim2.new(1,-20,0,30)
-search.Position = UDim2.new(0,10,0,70)
+search.Position = UDim2.new(0,10,0,55)
 search.PlaceholderText = ""
 search.BackgroundColor3 = Color3.fromRGB(30,30,30)
 search.TextColor3 = Color3.new(1,1,1)
@@ -122,7 +108,7 @@ end)
 --------------------------------------------------
 local tabScroll = Instance.new("ScrollingFrame")
 tabScroll.Size = UDim2.new(1,-20,0,35)
-tabScroll.Position = UDim2.new(0,10,0,105)
+tabScroll.Position = UDim2.new(0,10,0,90)
 tabScroll.ScrollingDirection = Enum.ScrollingDirection.X
 tabScroll.CanvasSize = UDim2.new(0,0,0,0)
 tabScroll.ScrollBarThickness = 0
@@ -138,8 +124,8 @@ tabLayout.Parent = tabScroll
 -- CONTENT HOLDER
 --------------------------------------------------
 local holder = Instance.new("Frame")
-holder.Size = UDim2.new(1,-20,1,-140)
-holder.Position = UDim2.new(0,10,0,140)
+holder.Size = UDim2.new(1,-20,1,-130)
+holder.Position = UDim2.new(0,10,0,125)
 holder.BackgroundTransparency = 1
 holder.Parent = main
 
@@ -223,7 +209,7 @@ MozCraft:createTab("Favorites")
 MozCraft:createTab("All")
 
 --------------------------------------------------
--- CREATE SLOT (Execute + Copy)
+-- CREATE SLOT (Copy or Execute via loader)
 --------------------------------------------------
 function MozCraft:createSlot(data)
 	if not pages[data.Tab] then self:createTab(data.Tab) end
@@ -232,6 +218,7 @@ function MozCraft:createSlot(data)
 		local slot = Instance.new("TextButton")
 		slot.Size = UDim2.new(0,90,0,90)
 		slot.BackgroundColor3 = Color3.fromRGB(35,35,35)
+		slot.BackgroundTransparency = data.Transparency or 0
 		slot.Text = ""
 		slot.Name = data.Name
 		slot.Parent = parent
@@ -263,35 +250,45 @@ function MozCraft:createSlot(data)
 		star.TextColor3 = Color3.fromRGB(255,215,0)
 		star.Parent = slot
 
-		-- SLOT LOGIC
+		-- SLOT LOGIC based on loader
 		slot.MouseButton1Click:Connect(function()
 			clickSound:Play()
-			pcall(function() loadstring(game:HttpGet(data.Script))() end)
-		end)
-		slot.MouseButton2Click:Connect(function()
-			clickSound:Play()
-			setclipboard(data.Script)
-		end)
-
-		-- FAVORITE LOGIC
-		star.MouseButton1Click:Connect(function()
-			clickSound:Play()
-			if favorites[data.Name] then
-				favorites[data.Name]=nil
-				star.Text="☆"
-				for _,v in pairs(pages["Favorites"]:GetChildren()) do
-					if v.Name==data.Name then v:Destroy() end
-				end
-			else
-				favorites[data.Name]=true
-				star.Text="★"
-				local clone = slot:Clone()
-				clone.Parent = pages["Favorites"]
+			if data.Logic == "Execute" then
+				pcall(function() loadstring(game:HttpGet(data.Script))() end)
+			elseif data.Logic == "Copy" then
+				setclipboard(data.Script)
 			end
 		end)
 
-		-- Update total slots label
-		totalLabel.Text = "Total: "..#allSlots+1
+		-- FAVORITE LOGIC synced across tabs
+		star.MouseButton1Click:Connect(function()
+			clickSound:Play()
+			favorites[data.Name] = not favorites[data.Name]
+			if favorites[data.Name] then
+				star.Text = "★"
+				for _,pageName in pairs({data.Tab,"All"}) do
+					for _,v in pairs(pages[pageName]:GetChildren()) do
+						if v.Name == data.Name then
+							local s = v:FindFirstChildWhichIsA("TextButton") or v
+							if s then s.TextButton = star end
+							v.Starred = true
+						end
+					end
+				end
+				local clone = slot:Clone()
+				clone.Parent = pages["Favorites"]
+			else
+				star.Text = "☆"
+				for _,v in pairs(pages["Favorites"]:GetChildren()) do
+					if v.Name==data.Name then v:Destroy() end
+				end
+				for _,pageName in pairs({data.Tab,"All"}) do
+					for _,v in pairs(pages[pageName]:GetChildren()) do
+						if v.Name == data.Name then v.Starred = false end
+					end
+				end
+			end
+		end)
 
 		return slot
 	end
