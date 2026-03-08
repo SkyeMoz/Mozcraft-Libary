@@ -1,25 +1,23 @@
--- MozCraft Library v2 (Full Rayfield-style)
+-- MozCraft Library v3 - Favorites & All Tab
+
 local CoreGui = game:GetService("CoreGui")
 local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 
--- Save path for favorites (per player)
 local player = Players.LocalPlayer
 local saveFolder = "MozCraftFavorites"
 local saveFile = saveFolder.."/"..player.UserId..".json"
 
--- GUI root
 local gui = Instance.new("ScreenGui")
 gui.Name = "MozCraftRayfield"
 gui.Parent = CoreGui
 
--- Click sound
 local sound = Instance.new("Sound")
 sound.SoundId = "rbxassetid://12222216"
 sound.Volume = 1
 sound.Parent = gui
 
--- Toggle
+-- Toggle button
 local toggle = Instance.new("ImageButton")
 toggle.Size = UDim2.new(0,60,0,60)
 toggle.Position = UDim2.new(0,20,0.5,-30)
@@ -62,7 +60,7 @@ search.TextSize = 14
 search.Parent = main
 Instance.new("UICorner",search).CornerRadius = UDim.new(0,6)
 
--- Tab scroll (swipeable)
+-- Tab scroll
 local tabScroll = Instance.new("ScrollingFrame")
 tabScroll.Size = UDim2.new(1,-20,0,35)
 tabScroll.Position = UDim2.new(0,10,0,80)
@@ -84,11 +82,12 @@ contentHolder.Position = UDim2.new(0,10,0,115)
 contentHolder.BackgroundTransparency = 1
 contentHolder.Parent = main
 
--- Library storage
+-- Storage
 local pages = {}
 local favorites = {}
+local allSlots = {}
 
--- Load favorites from file
+-- Load favorites
 pcall(function()
 	if not isfolder(saveFolder) then makefolder(saveFolder) end
 	if isfile(saveFile) then
@@ -96,18 +95,16 @@ pcall(function()
 	end
 end)
 
--- Helper: save favorites
 local function saveFavorites()
 	writefile(saveFile, HttpService:JSONEncode(favorites))
 end
 
--- Rayfield-like API
+-- MozCraft API
 local MozCraft = {}
 
--- Create tab (auto if missing)
+-- Create Tab
 function MozCraft:createTab(name)
 	if pages[name] then return end
-
 	local btn = Instance.new("TextButton")
 	btn.Size = UDim2.new(0,100,1,0)
 	btn.BackgroundColor3 = Color3.fromRGB(20,20,20)
@@ -147,9 +144,34 @@ function MozCraft:createTab(name)
 	pages[name] = page
 end
 
--- Create slot (Rayfield-style)
+-- Helper: duplicate slot for Favorites Tab
+local function createFavoriteSlot(origData)
+	if not pages["Favorites"] then
+		MozCraft:createTab("Favorites")
+	end
+	local favPage = pages["Favorites"]
+	local slot = origData:Clone()
+	slot.Parent = favPage
+	slot.Visible = true
+end
+
+-- Helper: update All Tab
+local function updateAllTab()
+	if not pages["All"] then
+		MozCraft:createTab("All")
+	end
+	local allPage = pages["All"]
+	allPage:ClearAllChildren()
+	table.sort(allSlots, function(a,b) return string.lower(a.Name) < string.lower(b.Name) end)
+	for _,slot in pairs(allSlots) do
+		local clone = slot:Clone()
+		clone.Parent = allPage
+		clone.Visible = true
+	end
+end
+
+-- Create Slot
 function MozCraft:createSlot(data)
-	-- Auto create tab
 	if not pages[data.Tab] then
 		self:createTab(data.Tab)
 	end
@@ -171,7 +193,7 @@ function MozCraft:createSlot(data)
 	iconImg.Image = "rbxassetid://"..data.Icon
 	iconImg.Parent = slot
 
-	-- Name label
+	-- Text label
 	local text = Instance.new("TextLabel")
 	text.Size = UDim2.new(1,0,0,20)
 	text.Position = UDim2.new(0,0,1,-22)
@@ -194,35 +216,48 @@ function MozCraft:createSlot(data)
 	star.Parent = slot
 
 	-- Hover animation
-	slot.MouseEnter:Connect(function()
-		slot.BackgroundTransparency = 0
-	end)
-	slot.MouseLeave:Connect(function()
-		slot.BackgroundTransparency = 0.2
-	end)
+	slot.MouseEnter:Connect(function() slot.BackgroundTransparency = 0 end)
+	slot.MouseLeave:Connect(function() slot.BackgroundTransparency = 0.2 end)
 
-	-- Slot click
+	-- Click executes script
 	slot.MouseButton1Click:Connect(function()
 		sound:Play()
-		pcall(function()
-			loadstring(game:HttpGet(data.Script))()
-		end)
+		pcall(function() loadstring(game:HttpGet(data.Script))() end)
 	end)
 
-	-- Star click (toggle favorite)
+	-- Add to All Slots
+	table.insert(allSlots,slot)
+	updateAllTab()
+
+	-- Favorite toggle
 	star.MouseButton1Click:Connect(function()
 		if favorites[data.Name] then
 			favorites[data.Name] = nil
 			star.Text = "☆"
+			-- Remove from Favorites Tab
+			if pages["Favorites"] then
+				for _,f in pairs(pages["Favorites"]:GetChildren()) do
+					if f:IsA("TextButton") and f.Name == data.Name then
+						f:Destroy()
+					end
+				end
+			end
 		else
 			favorites[data.Name] = true
 			star.Text = "★"
+			-- Copy to Favorites Tab
+			createFavoriteSlot(slot)
 		end
 		saveFavorites()
 	end)
+
+	-- Copy to Favorites if already favorited
+	if favorites[data.Name] then
+		createFavoriteSlot(slot)
+	end
 end
 
--- Search
+-- Search system
 search:GetPropertyChangedSignal("Text"):Connect(function()
 	local txt = string.lower(search.Text)
 	for _,page in pairs(pages) do
@@ -234,7 +269,7 @@ search:GetPropertyChangedSignal("Text"):Connect(function()
 	end
 end)
 
--- Update tab scroll size
+-- Update tab scroll
 tabLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
 	tabScroll.CanvasSize = UDim2.new(0,tabLayout.AbsoluteContentSize.X + 10,0,0)
 end)
