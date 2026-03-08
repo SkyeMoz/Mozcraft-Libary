@@ -1,4 +1,4 @@
--- MozCraft Library v3.1 - Favorites & All + Swipeable Tabs
+-- MozCraft Library v3.2 - Favorites + All + Swipeable Slots
 local CoreGui = game:GetService("CoreGui")
 local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
@@ -119,6 +119,7 @@ function MozCraft:createTab(name)
 	page.Size = UDim2.new(1,0,1,0)
 	page.ScrollBarThickness = 6
 	page.CanvasSize = UDim2.new(0,0,0,0)
+	page.ScrollBarImageColor3 = Color3.fromRGB(255,255,255)
 	page.BackgroundTransparency = 1
 	page.Visible = false
 	page.Parent = contentHolder
@@ -126,6 +127,7 @@ function MozCraft:createTab(name)
 	local grid = Instance.new("UIGridLayout")
 	grid.CellSize = UDim2.new(0,90,0,90)
 	grid.CellPadding = UDim2.new(0,6,0,6)
+	grid.SortOrder = Enum.SortOrder.LayoutOrder
 	grid.Parent = page
 
 	grid:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
@@ -213,9 +215,11 @@ function MozCraft:createSlot(data)
 		pcall(function() loadstring(game:HttpGet(data.Script))() end)
 	end)
 
+	-- Add to All Slots
 	table.insert(allSlots,slot)
 	updateAllTab()
 
+	-- Favorite toggle
 	star.MouseButton1Click:Connect(function()
 		if favorites[data.Name] then
 			favorites[data.Name] = nil
