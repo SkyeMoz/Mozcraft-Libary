@@ -30,7 +30,7 @@ end
 local toggle = Instance.new("ImageButton")
 toggle.Size = UDim2.new(0,60,0,60)
 toggle.Position = UDim2.new(0,20,0.5,-30)
-toggle.Image = "rbxassetid://100389947609805"
+toggle.Image = "rbxassetid://126860634030878"
 toggle.BackgroundColor3 = Color3.fromRGB(0,0,0)
 toggle.BackgroundTransparency = 0.3
 toggle.Parent = gui
@@ -75,7 +75,7 @@ searchLabel.Parent = main
 local search = Instance.new("TextBox")
 search.Size = UDim2.new(1,-20,0,30)
 search.Position = UDim2.new(0,10,0,55)
-search.PlaceholderText = ""
+search.PlaceholderText = "  "
 search.BackgroundColor3 = Color3.fromRGB(30,30,30)
 search.TextColor3 = Color3.new(1,1,1)
 search.Parent = main
