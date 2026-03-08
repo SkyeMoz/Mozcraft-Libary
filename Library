@@ -8,9 +8,7 @@ local gui = Instance.new("ScreenGui")
 gui.Name = "MozCraft"
 gui.Parent = CoreGui
 
---------------------------------------------------
 -- SOUNDS
---------------------------------------------------
 local clickSound = Instance.new("Sound")
 clickSound.SoundId = "rbxassetid://535716488"
 clickSound.Volume = 1
@@ -28,9 +26,7 @@ local function playTypingSound()
 	game:GetService("Debris"):AddItem(s,1)
 end
 
---------------------------------------------------
 -- TOGGLE BUTTON
---------------------------------------------------
 local toggle = Instance.new("ImageButton")
 toggle.Size = UDim2.new(0,60,0,60)
 toggle.Position = UDim2.new(0,20,0.5,-30)
@@ -40,9 +36,7 @@ toggle.BackgroundTransparency = 0.3
 toggle.Parent = gui
 Instance.new("UICorner",toggle).CornerRadius = UDim.new(1,0)
 
---------------------------------------------------
 -- MAIN GUI
---------------------------------------------------
 local main = Instance.new("Frame")
 main.Size = UDim2.new(0,450,0,400)
 main.Position = UDim2.new(0.5,-225,0.5,-200)
@@ -56,9 +50,7 @@ toggle.MouseButton1Click:Connect(function()
 	main.Visible = not main.Visible
 end)
 
---------------------------------------------------
 -- TITLE
---------------------------------------------------
 local title = Instance.new("TextLabel")
 title.Text = "Inventory"
 title.Size = UDim2.new(1,0,0,40)
@@ -68,9 +60,7 @@ title.Font = Enum.Font.GothamBold
 title.TextSize = 22
 title.Parent = main
 
---------------------------------------------------
 -- SEARCH LABEL & BOX
---------------------------------------------------
 local searchLabel = Instance.new("TextLabel")
 searchLabel.Text = "Search"
 searchLabel.Size = UDim2.new(1,-20,0,15)
@@ -93,19 +83,9 @@ Instance.new("UICorner",search).CornerRadius = UDim.new(0,6)
 
 search:GetPropertyChangedSignal("Text"):Connect(function()
 	playTypingSound()
-	local txt = string.lower(search.Text)
-	for _,page in pairs(pages) do
-		for _,slot in pairs(page:GetChildren()) do
-			if slot:IsA("TextButton") then
-				slot.Visible = string.find(string.lower(slot.Name), txt) ~= nil
-			end
-		end
-	end
 end)
 
---------------------------------------------------
--- TAB BAR
---------------------------------------------------
+-- SWIPEABLE TAB BAR
 local tabScroll = Instance.new("ScrollingFrame")
 tabScroll.Size = UDim2.new(1,-20,0,35)
 tabScroll.Position = UDim2.new(0,10,0,90)
@@ -120,48 +100,38 @@ tabLayout.FillDirection = Enum.FillDirection.Horizontal
 tabLayout.Padding = UDim.new(0,5)
 tabLayout.Parent = tabScroll
 
---------------------------------------------------
 -- CONTENT HOLDER
---------------------------------------------------
 local holder = Instance.new("Frame")
 holder.Size = UDim2.new(1,-20,1,-130)
 holder.Position = UDim2.new(0,10,0,125)
 holder.BackgroundTransparency = 1
 holder.Parent = main
 
---------------------------------------------------
 -- STORAGE
---------------------------------------------------
 local MozCraft = {}
 local pages = {}
 local allSlots = {}
 local favorites = {}
 
---------------------------------------------------
--- UTILITY: hover & shrink tween
---------------------------------------------------
+-- HOVER + SHRINK EFFECT
 local function applyHoverShrink(frame)
-	local normalSize = frame.Size
-	local shrinkSize = UDim2.new(frame.Size.X.Scale, frame.Size.X.Offset-5, frame.Size.Y.Scale, frame.Size.Y.Offset-5)
-	
+	local normal = frame.Size
+	local shrink = UDim2.new(frame.Size.X.Scale, frame.Size.X.Offset-5, frame.Size.Y.Scale, frame.Size.Y.Offset-5)
 	frame.MouseEnter:Connect(function()
 		TweenService:Create(frame,TweenInfo.new(0.1),{BackgroundColor3=Color3.fromRGB(55,55,55)}):Play()
 	end)
 	frame.MouseLeave:Connect(function()
 		TweenService:Create(frame,TweenInfo.new(0.1),{BackgroundColor3=Color3.fromRGB(35,35,35)}):Play()
 	end)
-	
 	frame.MouseButton1Down:Connect(function()
-		TweenService:Create(frame,TweenInfo.new(0.05),{Size=shrinkSize}):Play()
+		TweenService:Create(frame,TweenInfo.new(0.05),{Size=shrink}):Play()
 	end)
 	frame.MouseButton1Up:Connect(function()
-		TweenService:Create(frame,TweenInfo.new(0.05),{Size=normalSize}):Play()
+		TweenService:Create(frame,TweenInfo.new(0.05),{Size=normal}):Play()
 	end)
 end
 
---------------------------------------------------
 -- CREATE TAB
---------------------------------------------------
 function MozCraft:createTab(name)
 	if pages[name] then return end
 
@@ -202,19 +172,15 @@ function MozCraft:createTab(name)
 	tabScroll.CanvasSize = UDim2.new(0, tabLayout.AbsoluteContentSize.X + 20,0,0)
 end
 
---------------------------------------------------
 -- DEFAULT TABS
---------------------------------------------------
 MozCraft:createTab("Favorites")
 MozCraft:createTab("All")
 
---------------------------------------------------
--- CREATE SLOT (Copy or Execute via loader)
---------------------------------------------------
+-- CREATE SLOT
 function MozCraft:createSlot(data)
 	if not pages[data.Tab] then self:createTab(data.Tab) end
 
-	local function buildSlot(parent)
+	local function buildSlot(parent, syncFavorite)
 		local slot = Instance.new("TextButton")
 		slot.Size = UDim2.new(0,90,0,90)
 		slot.BackgroundColor3 = Color3.fromRGB(35,35,35)
@@ -243,14 +209,13 @@ function MozCraft:createSlot(data)
 		text.Parent = slot
 
 		local star = Instance.new("TextButton")
-		star.Text = "☆"
+		star.Text = favorites[data.Name] and "★" or "☆"
 		star.Size = UDim2.new(0,18,0,18)
 		star.Position = UDim2.new(1,-20,0,2)
 		star.BackgroundTransparency = 1
 		star.TextColor3 = Color3.fromRGB(255,215,0)
 		star.Parent = slot
 
-		-- SLOT LOGIC based on loader
 		slot.MouseButton1Click:Connect(function()
 			clickSound:Play()
 			if data.Logic == "Execute" then
@@ -260,33 +225,25 @@ function MozCraft:createSlot(data)
 			end
 		end)
 
-		-- FAVORITE LOGIC synced across tabs
 		star.MouseButton1Click:Connect(function()
 			clickSound:Play()
 			favorites[data.Name] = not favorites[data.Name]
-			if favorites[data.Name] then
-				star.Text = "★"
-				for _,pageName in pairs({data.Tab,"All"}) do
-					for _,v in pairs(pages[pageName]:GetChildren()) do
-						if v.Name == data.Name then
-							local s = v:FindFirstChildWhichIsA("TextButton") or v
-							if s then s.TextButton = star end
-							v.Starred = true
-						end
+			local symbol = favorites[data.Name] and "★" or "☆"
+			for _,pageName in pairs({data.Tab,"All"}) do
+				for _,v in pairs(pages[pageName]:GetChildren()) do
+					if v.Name == data.Name then
+						local s = v:FindFirstChildWhichIsA("TextButton") or v
+						if s then s.Text = symbol end
 					end
 				end
+			end
+			-- Update Favorites tab
+			for _,v in pairs(pages["Favorites"]:GetChildren()) do
+				if v.Name==data.Name then v:Destroy() end
+			end
+			if favorites[data.Name] then
 				local clone = slot:Clone()
 				clone.Parent = pages["Favorites"]
-			else
-				star.Text = "☆"
-				for _,v in pairs(pages["Favorites"]:GetChildren()) do
-					if v.Name==data.Name then v:Destroy() end
-				end
-				for _,pageName in pairs({data.Tab,"All"}) do
-					for _,v in pairs(pages[pageName]:GetChildren()) do
-						if v.Name == data.Name then v.Starred = false end
-					end
-				end
 			end
 		end)
 
@@ -298,10 +255,8 @@ function MozCraft:createSlot(data)
 	buildSlot(pages["All"])
 end
 
---------------------------------------------------
 -- KEYBIND: Toggle GUI
---------------------------------------------------
-UserInputService.InputBegan:Connect(function(input, gpe)
+UserInputService.InputBegan:Connect(function(input,gpe)
 	if gpe then return end
 	if input.KeyCode == Enum.KeyCode.I then
 		clickSound:Play()
@@ -309,7 +264,4 @@ UserInputService.InputBegan:Connect(function(input, gpe)
 	end
 end)
 
---------------------------------------------------
--- RETURN MozCraft
---------------------------------------------------
 return MozCraft
