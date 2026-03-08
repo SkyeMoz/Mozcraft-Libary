@@ -2,11 +2,39 @@ local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
+local HttpService = game:GetService("HttpService")
 local player = Players.LocalPlayer
+
+--------------------------------------------------
+-- REMOVE OLD GUI (PREVENT DUPLICATE)
+--------------------------------------------------
+if CoreGui:FindFirstChild("MozCraft") then
+	CoreGui.MozCraft:Destroy()
+end
 
 local gui = Instance.new("ScreenGui")
 gui.Name = "MozCraft"
 gui.Parent = CoreGui
+
+--------------------------------------------------
+-- FAVORITES SAVE SYSTEM
+--------------------------------------------------
+local favFile = "MozCraft_Favorites.json"
+local favorites = {}
+
+pcall(function()
+	if readfile and isfile and isfile(favFile) then
+		favorites = HttpService:JSONDecode(readfile(favFile))
+	end
+end)
+
+local function saveFavorites()
+	pcall(function()
+		if writefile then
+			writefile(favFile, HttpService:JSONEncode(favorites))
+		end
+	end)
+end
 
 --------------------------------------------------
 -- SOUNDS
@@ -34,7 +62,7 @@ end
 local toggle = Instance.new("ImageButton")
 toggle.Size = UDim2.new(0,60,0,60)
 toggle.Position = UDim2.new(0,20,0.5,-30)
-toggle.Image = "rbxassetid://14598484193" -- replace with your circle logo
+toggle.Image = "rbxassetid://14598484193"
 toggle.BackgroundColor3 = Color3.fromRGB(0,0,0)
 toggle.BackgroundTransparency = 0.5
 toggle.Parent = gui
@@ -100,7 +128,7 @@ search:GetPropertyChangedSignal("Text"):Connect(function()
 end)
 
 --------------------------------------------------
--- SWIPEABLE TAB BAR
+-- TAB BAR
 --------------------------------------------------
 local tabScroll = Instance.new("ScrollingFrame")
 tabScroll.Size = UDim2.new(1,-20,0,35)
@@ -131,7 +159,6 @@ holder.Parent = main
 local MozCraft = {}
 local pages = {}
 local allSlots = {}
-local favorites = {}
 
 --------------------------------------------------
 -- CREATE TAB
@@ -141,7 +168,7 @@ function MozCraft:createTab(name)
 
 	local btn = Instance.new("TextButton")
 	btn.Text = name
-	btn.Size = UDim2.new(0,100,1,0)
+	btn.Size = UDim2.new(0,110,1,0)
 	btn.BackgroundColor3 = Color3.fromRGB(25,25,25)
 	btn.TextColor3 = Color3.new(1,1,1)
 	btn.Parent = tabScroll
@@ -176,10 +203,9 @@ function MozCraft:createTab(name)
 end
 
 --------------------------------------------------
--- DEFAULT TABS
+-- DEFAULT TAB
 --------------------------------------------------
-MozCraft:createTab("Favorites")
--- "All" tab removed
+MozCraft:createTab("Favorites ⭐")
 
 --------------------------------------------------
 -- CREATE SLOT
@@ -234,24 +260,22 @@ function MozCraft:createSlot(data)
 		star.MouseButton1Click:Connect(function()
 			clickSound:Play()
 			favorites[data.Name] = not favorites[data.Name]
-			local symbol = favorites[data.Name] and "★" or "☆"
-			for _,pageName in pairs({data.Tab}) do
-				for _,v in pairs(pages[pageName]:GetChildren()) do
-					if v.Name == data.Name then
-						local s = v:FindFirstChildWhichIsA("TextButton") or v
-						if s then s.Text = symbol end
-					end
-				end
-			end
-			-- Update Favorites tab
-			for _,v in pairs(pages["Favorites"]:GetChildren()) do
+			saveFavorites()
+
+			for _,v in pairs(pages["Favorites ⭐"]:GetChildren()) do
 				if v.Name==data.Name then v:Destroy() end
 			end
+
 			if favorites[data.Name] then
 				local clone = slot:Clone()
-				clone.Parent = pages["Favorites"]
+				clone.Parent = pages["Favorites ⭐"]
 			end
 		end)
+
+		if favorites[data.Name] then
+			local clone = slot:Clone()
+			clone.Parent = pages["Favorites ⭐"]
+		end
 
 		return slot
 	end
@@ -261,7 +285,7 @@ function MozCraft:createSlot(data)
 end
 
 --------------------------------------------------
--- SEARCH FUNCTIONALITY
+-- SEARCH
 --------------------------------------------------
 search:GetPropertyChangedSignal("Text"):Connect(function()
 	local txt = string.lower(search.Text)
@@ -275,7 +299,7 @@ search:GetPropertyChangedSignal("Text"):Connect(function()
 end)
 
 --------------------------------------------------
--- KEYBIND: Toggle GUI
+-- KEYBIND
 --------------------------------------------------
 UserInputService.InputBegan:Connect(function(input,gpe)
 	if gpe then return end
@@ -285,7 +309,4 @@ UserInputService.InputBegan:Connect(function(input,gpe)
 	end
 end)
 
---------------------------------------------------
--- RETURN MozCraft
---------------------------------------------------
 return MozCraft
