@@ -2,7 +2,6 @@ local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
-local HttpService = game:GetService("HttpService")
 local player = Players.LocalPlayer
 
 local gui = Instance.new("ScreenGui")
@@ -45,8 +44,8 @@ Instance.new("UICorner",toggle).CornerRadius = UDim.new(1,0)
 -- MAIN GUI
 --------------------------------------------------
 local main = Instance.new("Frame")
-main.Size = UDim2.new(0,450,0,400)
-main.Position = UDim2.new(0.5,-225,0.5,-200)
+main.Size = UDim2.new(0,450,0,450)
+main.Position = UDim2.new(0.5,-225,0.5,-225)
 main.BackgroundColor3 = Color3.fromRGB(0,0,0)
 main.BackgroundTransparency = 0.3
 main.Parent = gui
@@ -70,12 +69,26 @@ title.TextSize = 22
 title.Parent = main
 
 --------------------------------------------------
+-- TOTAL SLOTS LABEL
+--------------------------------------------------
+local totalLabel = Instance.new("TextLabel")
+totalLabel.Text = "Total: 0"
+totalLabel.Size = UDim2.new(1,-20,0,15)
+totalLabel.Position = UDim2.new(0,10,0,35)
+totalLabel.BackgroundTransparency = 1
+totalLabel.TextColor3 = Color3.fromRGB(200,200,200)
+totalLabel.Font = Enum.Font.Gotham
+totalLabel.TextSize = 12
+totalLabel.TextXAlignment = Enum.TextXAlignment.Left
+totalLabel.Parent = main
+
+--------------------------------------------------
 -- SEARCH LABEL & BOX
 --------------------------------------------------
 local searchLabel = Instance.new("TextLabel")
 searchLabel.Text = "Search"
 searchLabel.Size = UDim2.new(1,-20,0,15)
-searchLabel.Position = UDim2.new(0,10,0,40)
+searchLabel.Position = UDim2.new(0,10,0,55)
 searchLabel.BackgroundTransparency = 1
 searchLabel.TextColor3 = Color3.fromRGB(200,200,200)
 searchLabel.Font = Enum.Font.Gotham
@@ -85,7 +98,7 @@ searchLabel.Parent = main
 
 local search = Instance.new("TextBox")
 search.Size = UDim2.new(1,-20,0,30)
-search.Position = UDim2.new(0,10,0,55)
+search.Position = UDim2.new(0,10,0,70)
 search.PlaceholderText = ""
 search.BackgroundColor3 = Color3.fromRGB(30,30,30)
 search.TextColor3 = Color3.new(1,1,1)
@@ -109,7 +122,7 @@ end)
 --------------------------------------------------
 local tabScroll = Instance.new("ScrollingFrame")
 tabScroll.Size = UDim2.new(1,-20,0,35)
-tabScroll.Position = UDim2.new(0,10,0,90)
+tabScroll.Position = UDim2.new(0,10,0,105)
 tabScroll.ScrollingDirection = Enum.ScrollingDirection.X
 tabScroll.CanvasSize = UDim2.new(0,0,0,0)
 tabScroll.ScrollBarThickness = 0
@@ -126,7 +139,7 @@ tabLayout.Parent = tabScroll
 --------------------------------------------------
 local holder = Instance.new("Frame")
 holder.Size = UDim2.new(1,-20,1,-140)
-holder.Position = UDim2.new(0,10,0,125)
+holder.Position = UDim2.new(0,10,0,140)
 holder.BackgroundTransparency = 1
 holder.Parent = main
 
@@ -173,7 +186,7 @@ function MozCraft:createTab(name)
 	btn.TextColor3 = Color3.new(1,1,1)
 	btn.Parent = tabScroll
 	Instance.new("UICorner",btn).CornerRadius = UDim.new(0,8)
-	applyHoverShrink(btn) -- hover & shrink effect on tabs
+	applyHoverShrink(btn)
 
 	local page = Instance.new("ScrollingFrame")
 	page.Size = UDim2.new(1,0,1,0)
@@ -210,7 +223,7 @@ MozCraft:createTab("Favorites")
 MozCraft:createTab("All")
 
 --------------------------------------------------
--- CREATE SLOT (with Execute + Copy)
+-- CREATE SLOT (Execute + Copy)
 --------------------------------------------------
 function MozCraft:createSlot(data)
 	if not pages[data.Tab] then self:createTab(data.Tab) end
@@ -223,7 +236,7 @@ function MozCraft:createSlot(data)
 		slot.Name = data.Name
 		slot.Parent = parent
 		Instance.new("UICorner",slot).CornerRadius = UDim.new(0,8)
-		applyHoverShrink(slot) -- hover & shrink effect on slots
+		applyHoverShrink(slot)
 
 		local icon = Instance.new("ImageLabel")
 		icon.Size = UDim2.new(0,60,0,60)
@@ -250,7 +263,7 @@ function MozCraft:createSlot(data)
 		star.TextColor3 = Color3.fromRGB(255,215,0)
 		star.Parent = slot
 
-		-- SLOT LOGIC: Left-click = Execute, Right-click = Copy
+		-- SLOT LOGIC
 		slot.MouseButton1Click:Connect(function()
 			clickSound:Play()
 			pcall(function() loadstring(game:HttpGet(data.Script))() end)
@@ -277,10 +290,13 @@ function MozCraft:createSlot(data)
 			end
 		end)
 
+		-- Update total slots label
+		totalLabel.Text = "Total: "..#allSlots+1
+
 		return slot
 	end
 
-	-- Add slot to main tab and All tab
+	table.insert(allSlots,data)
 	buildSlot(pages[data.Tab])
 	buildSlot(pages["All"])
 end
@@ -297,6 +313,6 @@ UserInputService.InputBegan:Connect(function(input, gpe)
 end)
 
 --------------------------------------------------
--- RETURN LIBRARY
+-- RETURN MozCraft
 --------------------------------------------------
 return MozCraft
