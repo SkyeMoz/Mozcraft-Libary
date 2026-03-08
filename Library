@@ -34,9 +34,9 @@ end
 local toggle = Instance.new("ImageButton")
 toggle.Size = UDim2.new(0,60,0,60)
 toggle.Position = UDim2.new(0,20,0.5,-30)
-toggle.Image = "rbxassetid://YOUR_NEW_CIRCLE_LOGO_ID" -- replace with your circle logo
+toggle.Image = "rbxassetid://14598484193" -- replace with your circle logo
 toggle.BackgroundColor3 = Color3.fromRGB(0,0,0)
-toggle.BackgroundTransparency = 0.3
+toggle.BackgroundTransparency = 0.5
 toggle.Parent = gui
 Instance.new("UICorner",toggle).CornerRadius = UDim.new(1,0)
 
@@ -60,7 +60,7 @@ end)
 -- TITLE
 --------------------------------------------------
 local title = Instance.new("TextLabel")
-title.Text = "Inventory"
+title.Text = "MozCraft Menu"
 title.Size = UDim2.new(1,0,0,40)
 title.BackgroundTransparency = 1
 title.TextColor3 = Color3.new(1,1,1)
