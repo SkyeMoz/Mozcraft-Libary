@@ -1,0 +1,196 @@
+-- MozCraft Rayfield-style Core GUI
+
+local CoreGui = game:GetService("CoreGui")
+local CLICK_SOUND = "rbxassetid://12222216"
+
+-- GUI Root
+local gui = Instance.new("ScreenGui")
+gui.Name = "MozCraftRayfield"
+gui.Parent = CoreGui
+
+-- Click sound
+local sound = Instance.new("Sound")
+sound.SoundId = CLICK_SOUND
+sound.Volume = 1
+sound.Parent = gui
+
+-- Toggle button
+local toggle = Instance.new("ImageButton")
+toggle.Size = UDim2.new(0,60,0,60)
+toggle.Position = UDim2.new(0,20,0.5,-30)
+toggle.BackgroundColor3 = Color3.fromRGB(0,0,0)
+toggle.BackgroundTransparency = 0.3
+toggle.Image = "rbxassetid://100389947609805"
+toggle.Parent = gui
+Instance.new("UICorner",toggle).CornerRadius = UDim.new(1,0)
+
+-- Main frame
+local main = Instance.new("Frame")
+main.Size = UDim2.new(0,450,0,380)
+main.Position = UDim2.new(0.5,-225,0.5,-190)
+main.BackgroundColor3 = Color3.fromRGB(0,0,0)
+main.BackgroundTransparency = 0.3
+main.Parent = gui
+Instance.new("UICorner",main).CornerRadius = UDim.new(0,10)
+
+-- Title
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1,0,0,40)
+title.Position = UDim2.new(0,0,0,0)
+title.BackgroundTransparency = 1
+title.Text = "MozCraft"
+title.TextColor3 = Color3.new(1,1,1)
+title.Font = Enum.Font.GothamBold
+title.TextSize = 22
+title.Parent = main
+
+-- SEARCH BAR
+local search = Instance.new("TextBox")
+search.Size = UDim2.new(1,-20,0,30)
+search.Position = UDim2.new(0,10,0,45)
+search.PlaceholderText = "Search..."
+search.Text = ""
+search.TextColor3 = Color3.new(1,1,1)
+search.BackgroundColor3 = Color3.fromRGB(25,25,25)
+search.BackgroundTransparency = 0.2
+search.Font = Enum.Font.Gotham
+search.TextSize = 14
+search.Parent = main
+Instance.new("UICorner",search).CornerRadius = UDim.new(0,6)
+
+-- TAB SCROLL (swipeable)
+local tabScroll = Instance.new("ScrollingFrame")
+tabScroll.Size = UDim2.new(1,-20,0,35)
+tabScroll.Position = UDim2.new(0,10,0,80)
+tabScroll.CanvasSize = UDim2.new(0,0,0,0)
+tabScroll.ScrollBarThickness = 0
+tabScroll.ScrollingDirection = Enum.ScrollingDirection.X
+tabScroll.BackgroundTransparency = 1
+tabScroll.Parent = main
+
+local tabLayout = Instance.new("UIListLayout")
+tabLayout.FillDirection = Enum.FillDirection.Horizontal
+tabLayout.Padding = UDim.new(0,6)
+tabLayout.Parent = tabScroll
+
+-- CONTENT HOLDER
+local contentHolder = Instance.new("Frame")
+contentHolder.Size = UDim2.new(1,-20,1,-125)
+contentHolder.Position = UDim2.new(0,10,0,115)
+contentHolder.BackgroundTransparency = 1
+contentHolder.Parent = main
+
+-- Storage
+local pages = {}
+
+-- PUBLIC API (Rayfield-style functions)
+local Rayfield = {}
+
+-- Create Tab
+function Rayfield:createTab(name)
+	if pages[name] then return end
+
+	-- Button
+	local btn = Instance.new("TextButton")
+	btn.Size = UDim2.new(0,100,1,0)
+	btn.BackgroundColor3 = Color3.fromRGB(20,20,20)
+	btn.BackgroundTransparency = 0.3
+	btn.Text = name
+	btn.TextColor3 = Color3.new(1,1,1)
+	btn.Font = Enum.Font.Gotham
+	btn.TextSize = 14
+	btn.Parent = tabScroll
+	Instance.new("UICorner",btn).CornerRadius = UDim.new(0,8)
+
+	-- Page
+	local page = Instance.new("ScrollingFrame")
+	page.Size = UDim2.new(1,0,1,0)
+	page.ScrollBarThickness = 6
+	page.CanvasSize = UDim2.new(0,0,0,0)
+	page.BackgroundTransparency = 1
+	page.Visible = false
+	page.Parent = contentHolder
+
+	local grid = Instance.new("UIGridLayout")
+	grid.CellSize = UDim2.new(0,90,0,90)
+	grid.CellPadding = UDim2.new(0,6,0,6)
+	grid.Parent = page
+
+	grid:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+		page.CanvasSize = UDim2.new(0,0,0,grid.AbsoluteContentSize.Y + 10)
+	end)
+
+	btn.MouseButton1Click:Connect(function()
+		sound:Play()
+		for _,p in pairs(pages) do
+			p.Visible = false
+		end
+		page.Visible = true
+	end)
+
+	pages[name] = page
+end
+
+-- Create Slot
+function Rayfield:createSlot(tab,name,icon,url)
+	local page = pages[tab]
+	if not page then return end
+
+	local slot = Instance.new("TextButton")
+	slot.Size = UDim2.new(0,90,0,90)
+	slot.BackgroundColor3 = Color3.fromRGB(30,30,30)
+	slot.BackgroundTransparency = 0.2
+	slot.Text = ""
+	slot.Name = name
+	slot.Parent = page
+
+	local iconImg = Instance.new("ImageLabel")
+	iconImg.Size = UDim2.new(0,60,0,60)
+	iconImg.Position = UDim2.new(0.5,-30,0,5)
+	iconImg.BackgroundTransparency = 1
+	iconImg.Image = "rbxassetid://"..icon
+	iconImg.Parent = slot
+
+	local text = Instance.new("TextLabel")
+	text.Size = UDim2.new(1,0,0,20)
+	text.Position = UDim2.new(0,0,1,-22)
+	text.BackgroundTransparency = 1
+	text.Text = name
+	text.TextColor3 = Color3.new(1,1,1)
+	text.Font = Enum.Font.Gotham
+	text.TextSize = 14
+	text.Parent = slot
+
+	slot.MouseButton1Click:Connect(function()
+		sound:Play()
+		pcall(function()
+			loadstring(game:HttpGet(url))()
+		end)
+	end)
+end
+
+-- SEARCH
+search:GetPropertyChangedSignal("Text"):Connect(function()
+	local txt = string.lower(search.Text)
+	for _,page in pairs(pages) do
+		for _,slot in pairs(page:GetChildren()) do
+			if slot:IsA("TextButton") then
+				slot.Visible = string.find(string.lower(slot.Name),txt) ~= nil
+			end
+		end
+	end
+end)
+
+-- Update tab scroll canvas size
+tabLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+	tabScroll.CanvasSize = UDim2.new(0,tabLayout.AbsoluteContentSize.X + 10,0,0)
+end)
+
+-- TOGGLE
+toggle.MouseButton1Click:Connect(function()
+	sound:Play()
+	main.Visible = not main.Visible
+end)
+
+-- Default return
+return Rayfield
