@@ -75,7 +75,8 @@ searchLabel.Parent = main
 local search = Instance.new("TextBox")
 search.Size = UDim2.new(1,-20,0,30)
 search.Position = UDim2.new(0,10,0,55)
-search.PlaceholderText = "  "
+search.PlaceholderText = "" -- removed placeholder text
+search.Text = ""
 search.BackgroundColor3 = Color3.fromRGB(30,30,30)
 search.TextColor3 = Color3.new(1,1,1)
 search.Parent = main
@@ -180,7 +181,7 @@ MozCraft:createTab("All")
 function MozCraft:createSlot(data)
 	if not pages[data.Tab] then self:createTab(data.Tab) end
 
-	local function buildSlot(parent, syncFavorite)
+	local function buildSlot(parent)
 		local slot = Instance.new("TextButton")
 		slot.Size = UDim2.new(0,90,0,90)
 		slot.BackgroundColor3 = Color3.fromRGB(35,35,35)
@@ -254,6 +255,29 @@ function MozCraft:createSlot(data)
 	buildSlot(pages[data.Tab])
 	buildSlot(pages["All"])
 end
+
+-- ADD DEFAULT RANDOM SLOT
+MozCraft:createSlot({
+	Tab = "All",
+	Name = "Random",
+	Icon = 106756897158809,
+	Logic = "Execute",
+	Script = "print('Random slot executed!')",
+	Transparency = 0
+})
+
+-- SEARCH FUNCTIONALITY
+search:GetPropertyChangedSignal("Text"):Connect(function()
+	playTypingSound()
+	local txt = string.lower(search.Text)
+	for _,page in pairs(pages) do
+		for _,slot in pairs(page:GetChildren()) do
+			if slot:IsA("TextButton") then
+				slot.Visible = string.find(string.lower(slot.Name), txt) ~= nil
+			end
+		end
+	end
+end)
 
 -- KEYBIND: Toggle GUI
 UserInputService.InputBegan:Connect(function(input,gpe)
