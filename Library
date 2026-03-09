@@ -3,14 +3,11 @@ local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local HttpService = game:GetService("HttpService")
+
 local player = Players.LocalPlayer
 
---------------------------------------------------
--- REMOVE OLD GUI (PREVENT DUPLICATE)
---------------------------------------------------
-
 if CoreGui:FindFirstChild("MozCraft") then
-CoreGui.MozCraft:Destroy()
+	CoreGui.MozCraft:Destroy()
 end
 
 local gui = Instance.new("ScreenGui")
@@ -18,24 +15,24 @@ gui.Name = "MozCraft"
 gui.Parent = CoreGui
 
 --------------------------------------------------
--- FAVORITES SAVE SYSTEM
+-- FAVORITES SAVE
 --------------------------------------------------
 
 local favFile = "MozCraft_Favorites.json"
 local favorites = {}
 
 pcall(function()
-if readfile and isfile and isfile(favFile) then
-favorites = HttpService:JSONDecode(readfile(favFile))
-end
+	if readfile and isfile and isfile(favFile) then
+		favorites = HttpService:JSONDecode(readfile(favFile))
+	end
 end)
 
 local function saveFavorites()
-pcall(function()
-if writefile then
-writefile(favFile, HttpService:JSONEncode(favorites))
-end
-end)
+	pcall(function()
+		if writefile then
+			writefile(favFile,HttpService:JSONEncode(favorites))
+		end
+	end)
 end
 
 --------------------------------------------------
@@ -44,20 +41,7 @@ end
 
 local clickSound = Instance.new("Sound")
 clickSound.SoundId = "rbxassetid://535716488"
-clickSound.Volume = 1
 clickSound.Parent = gui
-
-local typingSoundTemplate = Instance.new("Sound")
-typingSoundTemplate.SoundId = "rbxassetid://8107411980"
-typingSoundTemplate.Volume = 1
-typingSoundTemplate.Parent = gui
-
-local function playTypingSound()
-local s = typingSoundTemplate:Clone()
-s.Parent = gui
-s:Play()
-game:GetService("Debris"):AddItem(s,1)
-end
 
 --------------------------------------------------
 -- TOGGLE BUTTON
@@ -73,31 +57,7 @@ toggle.Parent = gui
 Instance.new("UICorner",toggle).CornerRadius = UDim.new(1,0)
 
 --------------------------------------------------
--- HOLD 10s DELETE
---------------------------------------------------
-
-local holding = false
-
-toggle.MouseButton1Down:Connect(function()
-holding = true
-task.spawn(function()
-local start = tick()
-while holding do
-if tick()-start >= 10 then
-gui:Destroy()
-break
-end
-task.wait()
-end
-end)
-end)
-
-toggle.MouseButton1Up:Connect(function()
-holding = false
-end)
-
---------------------------------------------------
--- MAIN GUI
+-- MAIN WINDOW
 --------------------------------------------------
 
 local main = Instance.new("Frame")
@@ -105,20 +65,11 @@ main.Size = UDim2.new(0,450,0,400)
 main.Position = UDim2.new(0.5,-225,0.5,-200)
 main.BackgroundColor3 = Color3.fromRGB(40,40,40)
 main.Parent = gui
-Instance.new("UICorner",main).CornerRadius = UDim.new(0,10)
-
-local mainGradient = Instance.new("UIGradient")
-mainGradient.Color = ColorSequence.new{
-ColorSequenceKeypoint.new(0,Color3.fromRGB(30,30,30)),
-ColorSequenceKeypoint.new(0.7,Color3.fromRGB(80,80,80)),
-ColorSequenceKeypoint.new(1,Color3.fromRGB(180,180,180))
-}
-mainGradient.Rotation = 90
-mainGradient.Parent = main
+Instance.new("UICorner",main)
 
 toggle.MouseButton1Click:Connect(function()
-clickSound:Play()
-main.Visible = not main.Visible
+	clickSound:Play()
+	main.Visible = not main.Visible
 end)
 
 --------------------------------------------------
@@ -135,46 +86,18 @@ title.TextSize = 22
 title.Parent = main
 
 --------------------------------------------------
--- EMPTY TEXT (FIRST OPEN)
+-- EMPTY LABEL
 --------------------------------------------------
 
-local emptyText = Instance.new("TextLabel")
-emptyText.Text = "🟢 Active Service"
-emptyText.Size = UDim2.new(1,-20,1,-140)
-emptyText.Position = UDim2.new(0,10,0,125)
-emptyText.BackgroundTransparency = 1
-emptyText.TextColor3 = Color3.fromRGB(200,200,200)
-emptyText.Font = Enum.Font.Gotham
-emptyText.TextSize = 18
-emptyText.Parent = main
-
---------------------------------------------------
--- SEARCH
---------------------------------------------------
-
-local searchLabel = Instance.new("TextLabel")
-searchLabel.Text = "Search"
-searchLabel.Size = UDim2.new(1,-20,0,15)
-searchLabel.Position = UDim2.new(0,10,0,40)
-searchLabel.BackgroundTransparency = 1
-searchLabel.TextColor3 = Color3.fromRGB(200,200,200)
-searchLabel.Font = Enum.Font.Gotham
-searchLabel.TextSize = 12
-searchLabel.TextXAlignment = Enum.TextXAlignment.Left
-searchLabel.Parent = main
-
-local search = Instance.new("TextBox")
-search.Size = UDim2.new(1,-20,0,30)
-search.Position = UDim2.new(0,10,0,55)
-search.Text = ""
-search.BackgroundColor3 = Color3.fromRGB(35,35,35)
-search.TextColor3 = Color3.new(1,1,1)
-search.Parent = main
-Instance.new("UICorner",search).CornerRadius = UDim.new(0,6)
-
-search:GetPropertyChangedSignal("Text"):Connect(function()
-playTypingSound()
-end)
+local activeLabel = Instance.new("TextLabel")
+activeLabel.Text = "🟢 Active Service"
+activeLabel.Size = UDim2.new(1,0,0,40)
+activeLabel.Position = UDim2.new(0,0,0.5,-20)
+activeLabel.BackgroundTransparency = 1
+activeLabel.TextColor3 = Color3.fromRGB(0,255,120)
+activeLabel.Font = Enum.Font.GothamBold
+activeLabel.TextSize = 18
+activeLabel.Parent = main
 
 --------------------------------------------------
 -- TAB BAR
@@ -182,11 +105,10 @@ end)
 
 local tabScroll = Instance.new("ScrollingFrame")
 tabScroll.Size = UDim2.new(1,-20,0,35)
-tabScroll.Position = UDim2.new(0,10,0,90)
-tabScroll.ScrollingDirection = Enum.ScrollingDirection.X
-tabScroll.CanvasSize = UDim2.new(0,0,0,0)
-tabScroll.ScrollBarThickness = 0
+tabScroll.Position = UDim2.new(0,10,0,50)
 tabScroll.BackgroundTransparency = 1
+tabScroll.ScrollBarThickness = 0
+tabScroll.ScrollingDirection = Enum.ScrollingDirection.X
 tabScroll.Parent = main
 
 local tabLayout = Instance.new("UIListLayout")
@@ -195,12 +117,12 @@ tabLayout.Padding = UDim.new(0,5)
 tabLayout.Parent = tabScroll
 
 --------------------------------------------------
--- CONTENT HOLDER
+-- CONTENT
 --------------------------------------------------
 
 local holder = Instance.new("Frame")
-holder.Size = UDim2.new(1,-20,1,-140)
-holder.Position = UDim2.new(0,10,0,125)
+holder.Size = UDim2.new(1,-20,1,-100)
+holder.Position = UDim2.new(0,10,0,90)
 holder.BackgroundTransparency = 1
 holder.Parent = main
 
@@ -210,53 +132,49 @@ holder.Parent = main
 
 local MozCraft = {}
 local pages = {}
-local allSlots = {}
-local toggledScripts = {}
+local activeScripts = {}
 
 --------------------------------------------------
--- CREATE TAB
+-- TAB CREATION
 --------------------------------------------------
 
 function MozCraft:createTab(name)
 
-if pages[name] then return end
+	if pages[name] then return end
 
-local btn = Instance.new("TextButton")
-btn.Text = name
-btn.Size = UDim2.new(0,110,1,0)
-btn.BackgroundColor3 = Color3.fromRGB(35,35,35)
-btn.TextColor3 = Color3.new(1,1,1)
-btn.Parent = tabScroll
-Instance.new("UICorner",btn)
+	local btn = Instance.new("TextButton")
+	btn.Text = name
+	btn.Size = UDim2.new(0,110,1,0)
+	btn.BackgroundColor3 = Color3.fromRGB(35,35,35)
+	btn.TextColor3 = Color3.new(1,1,1)
+	btn.Parent = tabScroll
+	Instance.new("UICorner",btn)
 
-local page = Instance.new("ScrollingFrame")
-page.Size = UDim2.new(1,0,1,0)
-page.CanvasSize = UDim2.new(0,0,0,0)
-page.ScrollBarThickness = 6
-page.BackgroundTransparency = 1
-page.Visible = false
-page.Parent = holder
+	local page = Instance.new("ScrollingFrame")
+	page.Size = UDim2.new(1,0,1,0)
+	page.BackgroundTransparency = 1
+	page.Visible = false
+	page.Parent = holder
 
-local grid = Instance.new("UIGridLayout")
-grid.CellSize = UDim2.new(0,90,0,90)
-grid.CellPadding = UDim2.new(0,6,0,6)
-grid.Parent = page
+	local grid = Instance.new("UIGridLayout")
+	grid.CellSize = UDim2.new(0,90,0,90)
+	grid.CellPadding = UDim2.new(0,6,0,6)
+	grid.Parent = page
 
-btn.MouseButton1Click:Connect(function()
+	btn.MouseButton1Click:Connect(function()
 
-clickSound:Play()
+		clickSound:Play()
 
-emptyText.Visible = false
+		activeLabel.Visible = false
 
-for _,p in pairs(pages) do
-p.Visible=false
-end
+		for _,p in pairs(pages) do
+			p.Visible = false
+		end
 
-page.Visible=true
+		page.Visible = true
+	end)
 
-end)
-
-pages[name] = page
+	pages[name] = page
 
 end
 
@@ -267,154 +185,118 @@ end
 MozCraft:createTab("Favorites ⭐")
 
 --------------------------------------------------
--- CREATE SLOT
+-- SLOT CREATION
 --------------------------------------------------
 
 function MozCraft:createSlot(data)
 
-if not pages[data.Tab] then
-self:createTab(data.Tab)
-end
+	if not pages[data.Tab] then
+		self:createTab(data.Tab)
+	end
 
-local function buildSlot(parent)
+	local function build(parent)
 
-local slot = Instance.new("TextButton")
-slot.Size = UDim2.new(0,90,0,90)
-slot.BackgroundColor3 = Color3.fromRGB(40,40,40)
-slot.Text = ""
-slot.Name = data.Name
-slot.Parent = parent
-Instance.new("UICorner",slot)
+		local slot = Instance.new("TextButton")
+		slot.Size = UDim2.new(0,90,0,90)
+		slot.BackgroundColor3 = Color3.fromRGB(40,40,40)
+		slot.Text = ""
+		slot.Name = data.Name
+		slot.Parent = parent
+		Instance.new("UICorner",slot)
 
-local stroke = Instance.new("UIStroke")
-stroke.Color = Color3.fromRGB(0,255,0)
-stroke.Thickness = 3
-stroke.Enabled = false
-stroke.Parent = slot
+		local stroke = Instance.new("UIStroke")
+		stroke.Color = Color3.fromRGB(0,255,120)
+		stroke.Thickness = 2
+		stroke.Enabled = false
+		stroke.Parent = slot
 
-local icon = Instance.new("ImageLabel")
-icon.Size = UDim2.new(0,60,0,60)
-icon.Position = UDim2.new(0.5,-30,0,5)
-icon.BackgroundTransparency = 1
-icon.Image = "rbxassetid://"..data.Icon
-icon.Parent = slot
+		local icon = Instance.new("ImageLabel")
+		icon.Size = UDim2.new(0,60,0,60)
+		icon.Position = UDim2.new(0.5,-30,0,5)
+		icon.BackgroundTransparency = 1
+		icon.Image = "rbxassetid://"..data.Icon
+		icon.Parent = slot
 
-local text = Instance.new("TextLabel")
-text.Size = UDim2.new(1,0,0,20)
-text.Position = UDim2.new(0,0,1,-20)
-text.BackgroundTransparency = 1
-text.Text = data.Name
-text.TextColor3 = Color3.new(1,1,1)
-text.Font = Enum.Font.Gotham
-text.TextSize = 14
-text.Parent = slot
+		local text = Instance.new("TextLabel")
+		text.Size = UDim2.new(1,0,0,20)
+		text.Position = UDim2.new(0,0,1,-20)
+		text.BackgroundTransparency = 1
+		text.Text = data.Name
+		text.TextColor3 = Color3.new(1,1,1)
+		text.Font = Enum.Font.Gotham
+		text.TextSize = 14
+		text.Parent = slot
 
-local star = Instance.new("TextButton")
-star.Text = favorites[data.Name] and "★" or "☆"
-star.Size = UDim2.new(0,18,0,18)
-star.Position = UDim2.new(1,-20,0,2)
-star.BackgroundTransparency = 1
-star.TextColor3 = favorites[data.Name] and Color3.fromRGB(255,221,0) or Color3.fromRGB(150,150,150)
-star.Parent = slot
+		local star = Instance.new("TextButton")
+		star.Size = UDim2.new(0,18,0,18)
+		star.Position = UDim2.new(1,-20,0,2)
+		star.BackgroundTransparency = 1
+		star.Text = favorites[data.Name] and "★" or "☆"
+		star.Parent = slot
 
---------------------------------------------------
--- SLOT LOGIC
---------------------------------------------------
+		local toggled = false
 
-local function runLogic()
+		slot.MouseButton1Click:Connect(function()
 
-clickSound:Play()
+			clickSound:Play()
 
-if data.Logic == "Execute" then
+			if data.Logic == "Toggle" then
 
-pcall(function()
-loadstring(game:HttpGet(data.Script))()
-end)
+				toggled = not toggled
+				stroke.Enabled = toggled
 
-elseif data.Logic == "Copy" then
+				if toggled then
+					activeScripts[data.Name] = loadstring(game:HttpGet(data.Script))()
+				else
+					activeScripts[data.Name] = nil
+				end
 
-setclipboard(data.Script)
+			elseif data.Logic == "Execute" then
 
-elseif data.Logic == "Toggle" then
+				pcall(function()
+					loadstring(game:HttpGet(data.Script))()
+				end)
 
-if not toggledScripts[data.Name] then
+			elseif data.Logic == "Copy" then
 
-toggledScripts[data.Name] = true
-stroke.Enabled = true
+				setclipboard(data.Script)
 
-pcall(function()
-loadstring(game:HttpGet(data.Script))()
-end)
+			end
 
-else
+		end)
 
-toggledScripts[data.Name] = nil
-stroke.Enabled = false
+		star.MouseButton1Click:Connect(function()
 
-end
+			favorites[data.Name] = not favorites[data.Name]
+			saveFavorites()
 
-end
+			star.Text = favorites[data.Name] and "★" or "☆"
 
-end
+			local favPage = pages["Favorites ⭐"]
 
-slot.MouseButton1Click:Connect(runLogic)
+			for _,v in pairs(favPage:GetChildren()) do
+				if v.Name == data.Name then
+					v:Destroy()
+				end
+			end
 
---------------------------------------------------
--- FAVORITES
---------------------------------------------------
+			if favorites[data.Name] then
+				build(favPage)
+			end
 
-star.MouseButton1Click:Connect(function()
+		end)
 
-clickSound:Play()
+		return slot
 
-favorites[data.Name] = not favorites[data.Name]
-saveFavorites()
+	end
 
-star.Text = favorites[data.Name] and "★" or "☆"
+	local slot = build(pages[data.Tab])
 
-for _,v in pairs(pages["Favorites ⭐"]:GetChildren()) do
-if v.Name == data.Name then
-v:Destroy()
-end
-end
-
-if favorites[data.Name] then
-buildSlot(pages["Favorites ⭐"])
-end
-
-end)
-
-if favorites[data.Name] then
-buildSlot(pages["Favorites ⭐"])
-end
+	if favorites[data.Name] then
+		build(pages["Favorites ⭐"])
+	end
 
 end
-
-table.insert(allSlots,data)
-
-buildSlot(pages[data.Tab])
-
-end
-
---------------------------------------------------
--- SEARCH
---------------------------------------------------
-
-search:GetPropertyChangedSignal("Text"):Connect(function()
-
-local txt = string.lower(search.Text)
-
-for _,page in pairs(pages) do
-for _,slot in pairs(page:GetChildren()) do
-
-if slot:IsA("TextButton") then
-slot.Visible = string.find(string.lower(slot.Name), txt)
-end
-
-end
-end
-
-end)
 
 --------------------------------------------------
 -- KEYBIND
@@ -422,15 +304,15 @@ end)
 
 UserInputService.InputBegan:Connect(function(input,gpe)
 
-if gpe then return end
+	if gpe then return end
 
-if input.KeyCode == Enum.KeyCode.I then
+	if input.KeyCode == Enum.KeyCode.I then
 
-clickSound:Play()
+		clickSound:Play()
 
-main.Visible = not main.Visible
+		main.Visible = not main.Visible
 
-end
+	end
 
 end)
 
