@@ -359,32 +359,37 @@ function MozCraft:createSlot(data)
 		end)
 
 		star.MouseButton1Click:Connect(function()
-			clickSound:Play()
+	clickSound:Play()
 
-			favorites[data.Name] = not favorites[data.Name]
-			saveFavorites()
+	favorites[data.Name] = not favorites[data.Name]
+	saveFavorites()
 
-			star.Text = favorites[data.Name] and "★" or "☆"
-			star.TextColor3 = favorites[data.Name] and Color3.fromRGB(255,221,0) or Color3.fromRGB(150,150,150)
+	star.Text = favorites[data.Name] and "★" or "☆"
+	star.TextColor3 = favorites[data.Name] and Color3.fromRGB(255,221,0) or Color3.fromRGB(150,150,150)
 
-			for _,v in pairs(pages["Favorites ⭐"]:GetChildren()) do
-				if v.Name==data.Name then v:Destroy() end
-			end
-
-			if favorites[data.Name] then
-				local clone = slot:Clone()
-				clone.Parent = pages["Favorites ⭐"]
-			end
-		end)
-
-		if favorites[data.Name] then
-			local clone = slot:Clone()
-			clone.Parent = pages["Favorites ⭐"]
+	-- remove old favorite
+	for _,v in pairs(pages["Favorites ⭐"]:GetChildren()) do
+		if v:IsA("TextButton") and v.Name == data.Name then
+			v:Destroy()
 		end
+	end
+
+	-- add new favorite
+	if favorites[data.Name] then
+		buildSlot(pages["Favorites ⭐"])
+	end
+end)
+
+	end -- CLOSE buildSlot
+
+	-- auto load favorite
+	if favorites[data.Name] then
+		buildSlot(pages["Favorites ⭐"])
 	end
 
 	table.insert(allSlots,data)
 	buildSlot(pages[data.Tab])
+
 end
 
 --------------------------------------------------
