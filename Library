@@ -314,13 +314,6 @@ function MozCraft:createSlot(data)
 		slot.Name = data.Name
 		slot.Parent = parent
 		Instance.new("UICorner",slot).CornerRadius = UDim.new(0,8)
-		local outline = Instance.new("UIStroke")
-       outline.Thickness = 2
-       outline.Color = Color3.fromRGB(0,255,0)
-       outline.Enabled = false
-       outline.Parent = slot
-
-       local toggled = false
 
 		local sg = Instance.new("UIGradient")
 		sg.Color = ColorSequence.new{
@@ -357,39 +350,13 @@ function MozCraft:createSlot(data)
 		star.Parent = slot
 
 		slot.MouseButton1Click:Connect(function()
-	clickSound:Play()
-
-	if data.Logic == "Toggle" then
-		
-		toggled = not toggled
-		outline.Enabled = toggled
-
-		if toggled then
-			if data.OnExecute then
-				pcall(function()
-					loadstring(game:HttpGet(data.OnExecute))()
-				end)
+			clickSound:Play()
+			if data.Logic == "Execute" then
+				pcall(function() loadstring(game:HttpGet(data.Script))() end)
+			elseif data.Logic == "Copy" then
+				setclipboard(data.Script)
 			end
-		else
-			if data.OnDisable then
-				pcall(function()
-					loadstring(game:HttpGet(data.OnDisable))()
-				end)
-			end
-		end
-
-	elseif data.Logic == "Execute" then
-
-		pcall(function()
-			loadstring(game:HttpGet(data.Script))()
 		end)
-
-	elseif data.Logic == "Copy" then
-
-		setclipboard(data.Script)
-
-	end
-end)
 
 		star.MouseButton1Click:Connect(function()
 			clickSound:Play()
