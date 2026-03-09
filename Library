@@ -364,8 +364,18 @@ function MozCraft:createSlot(data)
 	favorites[data.Name] = not favorites[data.Name]
 	saveFavorites()
 
-	star.Text = favorites[data.Name] and "★" or "☆"
-	star.TextColor3 = favorites[data.Name] and Color3.fromRGB(255,221,0) or Color3.fromRGB(150,150,150)
+	-- update ALL stars for this slot
+	for _,page in pairs(pages) do
+		for _,slot in pairs(page:GetChildren()) do
+			if slot:IsA("TextButton") and slot.Name == data.Name then
+				local s = slot:FindFirstChildOfClass("TextButton")
+				if s then
+					s.Text = favorites[data.Name] and "★" or "☆"
+					s.TextColor3 = favorites[data.Name] and Color3.fromRGB(255,221,0) or Color3.fromRGB(150,150,150)
+				end
+			end
+		end
+	end
 
 	-- remove old favorite
 	for _,v in pairs(pages["Favorites ⭐"]:GetChildren()) do
