@@ -1,1782 +1,430 @@
---[[
-	╔══════════════════════════════════════════════════════════╗
-	║                  MozCraft UI Library                     ║
-	║         Premium Executor Dashboard — v2.5               ║
-	║   Stable • Optimized • Mobile-Friendly • Refined         ║
-	╚══════════════════════════════════════════════════════════╝
-
-	API:
-	  MozCraft:createTab(name)
-	  MozCraft:createSlot(data)
-	  MozCraft:Notify({ Title, Content, Type, Duration })
-
-	data = {
-	  Name    = string,
-	  Tab     = string,
-	  Icon    = string (asset id),
-	  Logic   = "Execute" | "Copy",
-	  Script  = string,
-	}
---]]
-
--- ╔══════════════════════════╗
--- ║       SERVICES           ║
--- ╚══════════════════════════╝
-local CoreGui          = game:GetService("CoreGui")
-local TweenService     = game:GetService("TweenService")
+local CoreGui = game:GetService("CoreGui")
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
-local HttpService      = game:GetService("HttpService")
-local RunService       = game:GetService("RunService")
-local TextService      = game:GetService("TextService")
+local HttpService = game:GetService("HttpService")
+local player = Players.LocalPlayer
 
--- ╔══════════════════════════╗
--- ║       THEME              ║
--- ╚══════════════════════════╝
-local THEME = {
-	BG_DARK        = Color3.fromRGB(12, 12, 14),
-	BG_PANEL       = Color3.fromRGB(18, 18, 22),
-	BG_SURFACE     = Color3.fromRGB(24, 24, 30),
-	BG_ELEVATED    = Color3.fromRGB(30, 30, 38),
-	BG_CARD        = Color3.fromRGB(22, 22, 28),
-	BG_INPUT       = Color3.fromRGB(15, 15, 20),
-	ACCENT         = Color3.fromRGB(255, 138, 0),
-	ACCENT_BRIGHT  = Color3.fromRGB(255, 165, 50),
-	ACCENT_DIM     = Color3.fromRGB(180, 95, 0),
-	TEXT_PRIMARY   = Color3.fromRGB(240, 240, 245),
-	TEXT_SECONDARY = Color3.fromRGB(155, 155, 170),
-	TEXT_MUTED     = Color3.fromRGB(80, 80, 95),
-	BORDER         = Color3.fromRGB(40, 40, 52),
-	SUCCESS        = Color3.fromRGB(50, 215, 120),
-	ERROR          = Color3.fromRGB(255, 70, 70),
-	STAR           = Color3.fromRGB(255, 210, 50),
-	GRAD_PANEL  = ColorSequence.new{
-		ColorSequenceKeypoint.new(0, Color3.fromRGB(18, 18, 22)),
-		ColorSequenceKeypoint.new(1, Color3.fromRGB(12, 12, 16)),
-	},
-	GRAD_ACCENT = ColorSequence.new{
-		ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 160, 20)),
-		ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 100, 0)),
-	},
-}
-
--- ╔══════════════════════════╗
--- ║   TWEEN PRESETS          ║
--- ║  Quad/Sine ONLY          ║
--- ╚══════════════════════════╝
-local TI = {
-	hover    = TweenInfo.new(0.10, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-	button   = TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-	open     = TweenInfo.new(0.20, Enum.EasingStyle.Sine, Enum.EasingDirection.Out),
-	close    = TweenInfo.new(0.18, Enum.EasingStyle.Sine, Enum.EasingDirection.In),
-	notif    = TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-	minimize = TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-	tab      = TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-	slow     = TweenInfo.new(0.30, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut),
-}
-
--- ╔══════════════════════════╗
--- ║   PERSISTENCE FILES      ║
--- ╚══════════════════════════╝
-local FAV_FILE  = "MozCraft_Favorites.json"
-local HIST_FILE = "MozCraft_History.json"
-
--- ╔══════════════════════════╗
--- ║   WINDOW DIMENSIONS      ║
--- ║  Fixed 380×310 always    ║
--- ║  UIScale handles fit     ║
--- ╚══════════════════════════╝
-local BASE_W = 380
-local BASE_H = 310
-local TB_H   = 38
-local SB_Y   = TB_H + 6
-local TAB_Y  = SB_Y + 28 + 5
-local CONTENT_Y = TAB_Y + 28 + 5
-
--- ╔══════════════════════════╗
--- ║   TWEEN TRACKER          ║
--- ╚══════════════════════════╝
-local activeTweens = {}
-
-local function safeTween(obj, info, props)
-	if not obj or not obj.Parent then return nil end
-	local ok, t = pcall(TweenService.Create, TweenService, obj, info, props)
-	if not ok or not t then return nil end
-	activeTweens[t] = true
-	t.Completed:Connect(function() activeTweens[t] = nil end)
-	t:Play()
-	return t
+--------------------------------------------------
+-- REMOVE OLD GUI (PREVENT DUPLICATE)
+--------------------------------------------------
+if CoreGui:FindFirstChild("MozCraft") then
+	CoreGui.MozCraft:Destroy()
 end
 
-local function cancelAllTweens()
-	for t in pairs(activeTweens) do
-		pcall(function() t:Cancel() end)
-	end
-	table.clear(activeTweens)
-end
+local gui = Instance.new("ScreenGui")
+gui.Name = "MozCraft"
+gui.Parent = CoreGui
 
--- ╔══════════════════════════╗
--- ║   GLOBAL CONNECTIONS     ║
--- ╚══════════════════════════╝
-local globalConnections = {}
+--------------------------------------------------
+-- FAVORITES SAVE SYSTEM
+--------------------------------------------------
+local favFile = "MozCraft_Favorites.json"
+local favorites = {}
 
-local function trackConn(c)
-	globalConnections[#globalConnections + 1] = c
-	return c
-end
-
-local function disconnectAll()
-	for _, c in ipairs(globalConnections) do
-		pcall(function() c:Disconnect() end)
-	end
-	table.clear(globalConnections)
-end
-
--- ╔══════════════════════════╗
--- ║    UTILITY HELPERS       ║
--- ╚══════════════════════════╝
-local function corner(parent, radius)
-	local c = Instance.new("UICorner")
-	c.CornerRadius = UDim.new(0, radius or 8)
-	c.Parent = parent
-	return c
-end
-
-local function stroke(parent, color, thickness, transparency)
-	local existing = parent:FindFirstChildOfClass("UIStroke")
-	if existing then existing:Destroy() end
-	local s = Instance.new("UIStroke")
-	s.Color        = color or THEME.BORDER
-	s.Thickness    = thickness or 1
-	s.Transparency = transparency or 0
-	s.Parent       = parent
-	return s
-end
-
-local function padding(parent, top, right, bottom, left)
-	local p = Instance.new("UIPadding")
-	p.PaddingTop    = UDim.new(0, top    or 0)
-	p.PaddingRight  = UDim.new(0, right  or 0)
-	p.PaddingBottom = UDim.new(0, bottom or 0)
-	p.PaddingLeft   = UDim.new(0, left   or 0)
-	p.Parent        = parent
-	return p
-end
-
-local function gradient(parent, colors, rotation)
-	local g = Instance.new("UIGradient")
-	g.Color    = colors
-	g.Rotation = rotation or 90
-	g.Parent   = parent
-	return g
-end
-
-local function makeFrame(props)
-	local f = Instance.new("Frame")
-	for k, v in pairs(props or {}) do f[k] = v end
-	return f
-end
-
-local function makeLabel(props)
-	local l = Instance.new("TextLabel")
-	l.BackgroundTransparency = 1
-	l.Font     = Enum.Font.Gotham
-	l.TextSize = 13
-	for k, v in pairs(props or {}) do l[k] = v end
-	return l
-end
-
-local function makeButton(props)
-	local b = Instance.new("TextButton")
-	b.BackgroundTransparency = 0
-	b.Font            = Enum.Font.GothamBold
-	b.TextSize        = 13
-	b.AutoButtonColor = false
-	for k, v in pairs(props or {}) do b[k] = v end
-	return b
-end
-
--- ╔══════════════════════════╗
--- ║   PERSISTENCE HELPERS    ║
--- ╚══════════════════════════╝
-local function safeRead(file)
-	local ok, result = pcall(function()
-		if type(readfile) ~= "function" then return nil end
-		if type(isfile)   ~= "function" then return nil end
-		if not isfile(file)             then return nil end
-		local raw = readfile(file)
-		if not raw or raw == ""         then return nil end
-		return HttpService:JSONDecode(raw)
-	end)
-	if ok and type(result) == "table" then return result end
-	return {}
-end
-
-local function safeWrite(file, data)
-	pcall(function()
-		if type(writefile) ~= "function" then return end
-		writefile(file, HttpService:JSONEncode(data))
-	end)
-end
-
--- ╔══════════════════════════╗
--- ║    DESTROY OLD GUI       ║
--- ╚══════════════════════════╝
 pcall(function()
-	local old = CoreGui:FindFirstChild("MozCraft")
-	if old then old:Destroy() end
+	if readfile and isfile and isfile(favFile) then
+		favorites = HttpService:JSONDecode(readfile(favFile))
+	end
 end)
 
--- ╔══════════════════════════╗
--- ║      ROOT SCREENGUI      ║
--- ╚══════════════════════════╝
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name           = "MozCraft"
-ScreenGui.ResetOnSpawn   = false
-ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-ScreenGui.IgnoreGuiInset = true
-ScreenGui.Parent         = CoreGui
-
--- ╔══════════════════════════╗
--- ║   BLUR OVERLAY           ║
--- ╚══════════════════════════╝
-local blurOverlay = makeFrame{
-	Name                   = "BlurOverlay",
-	Size                   = UDim2.new(1, 0, 1, 0),
-	BackgroundColor3       = Color3.fromRGB(0, 0, 0),
-	BackgroundTransparency = 1,
-	ZIndex                 = 1,
-	Parent                 = ScreenGui,
-}
-
--- ╔══════════════════════════╗
--- ║       SOUND SYSTEM       ║
--- ╚══════════════════════════╝
-local soundContainer = Instance.new("Folder")
-soundContainer.Name   = "Sounds"
-soundContainer.Parent = ScreenGui
-
-local function makeSound(id, vol)
-	local s = Instance.new("Sound")
-	s.SoundId            = "rbxassetid://" .. id
-	s.Volume             = vol or 0.4
-	s.RollOffMaxDistance = 0
-	s.Parent             = soundContainer
-	return s
-end
-
-local SND = {
-	click = makeSound("535716488",  0.35),
-	open  = makeSound("3837464018", 0.25),
-	close = makeSound("3716153897", 0.25),
-	notif = makeSound("4959158406", 0.4),
-	star  = makeSound("4959158406", 0.3),
-}
-
-local function playSound(snd)
+local function saveFavorites()
 	pcall(function()
-		if not snd or not snd.Parent then return end
-		local clone = snd:Clone()
-		clone.Parent = soundContainer
-		clone:Play()
-		local ttl = math.max((clone.TimeLength or 0) + 0.2, 1)
-		game:GetService("Debris"):AddItem(clone, ttl)
+		if writefile then
+			writefile(favFile, HttpService:JSONEncode(favorites))
+		end
 	end)
 end
 
--- ╔══════════════════════════╗
--- ║  NOTIFICATION SYSTEM     ║
--- ║  No stacking, no overlap ║
--- ╚══════════════════════════╝
-local notifContainer = makeFrame{
-	Name                   = "NotifContainer",
-	Size                   = UDim2.new(0, 260, 1, 0),
-	Position               = UDim2.new(1, -270, 0, 0),
-	BackgroundTransparency = 1,
-	ZIndex                 = 100,
-	Parent                 = ScreenGui,
-}
-local notifLayout = Instance.new("UIListLayout")
-notifLayout.FillDirection     = Enum.FillDirection.Vertical
-notifLayout.SortOrder         = Enum.SortOrder.LayoutOrder
-notifLayout.Padding           = UDim.new(0, 5)
-notifLayout.VerticalAlignment = Enum.VerticalAlignment.Bottom
-notifLayout.Parent            = notifContainer
-padding(notifContainer, 0, 0, 12, 0)
+--------------------------------------------------
+-- SOUNDS
+--------------------------------------------------
+local clickSound = Instance.new("Sound")
+clickSound.SoundId = "rbxassetid://535716488"
+clickSound.Volume = 1
+clickSound.Parent = gui
 
-local notifCount    = 0
-local activeNotifs  = 0
-local MAX_NOTIFS    = 4
+local typingSoundTemplate = Instance.new("Sound")
+typingSoundTemplate.SoundId = "rbxassetid://8107411980"
+typingSoundTemplate.Volume = 1
+typingSoundTemplate.Parent = gui
 
-local function notify(title, message, ntype, duration)
-	-- Evict oldest if at cap
-	if activeNotifs >= MAX_NOTIFS then
-		local children = notifContainer:GetChildren()
-		for _, c in ipairs(children) do
-			if c:IsA("Frame") then
-				pcall(function() c:Destroy() end)
-				activeNotifs = math.max(0, activeNotifs - 1)
+local function playTypingSound()
+	local s = typingSoundTemplate:Clone()
+	s.Parent = gui
+	s:Play()
+	game:GetService("Debris"):AddItem(s,1)
+end
+
+--------------------------------------------------
+-- TOGGLE BUTTON
+--------------------------------------------------
+local toggle = Instance.new("ImageButton")
+toggle.Size = UDim2.new(0,60,0,60)
+toggle.Position = UDim2.new(0,20,0.5,-30)
+toggle.Image = "rbxassetid://14598484193"
+toggle.BackgroundColor3 = Color3.fromRGB(0,0,0)
+toggle.BackgroundTransparency = 0.5
+toggle.Parent = gui
+Instance.new("UICorner",toggle).CornerRadius = UDim.new(1,0)
+
+--------------------------------------------------
+-- HOLD 10s DELETE
+--------------------------------------------------
+local holding = false
+
+toggle.MouseButton1Down:Connect(function()
+	holding = true
+	task.spawn(function()
+		local start = tick()
+		while holding do
+			if tick()-start >= 10 then
+				gui:Destroy()
 				break
 			end
+			task.wait()
 		end
-	end
-
-	notifCount  += 1
-	activeNotifs += 1
-	duration = math.max(duration or 3.5, 0.5)
-	ntype    = ntype or "info"
-
-	local accentCol = (ntype == "success" and THEME.SUCCESS)
-		or (ntype == "error"   and THEME.ERROR)
-		or (ntype == "warning" and Color3.fromRGB(255, 200, 0))
-		or THEME.ACCENT
-
-	local wrapper = makeFrame{
-		Name                   = "Notif_" .. notifCount,
-		Size                   = UDim2.new(1, 0, 0, 0),
-		BackgroundTransparency = 1,
-		ClipsDescendants       = true,
-		ZIndex                 = 100,
-		LayoutOrder            = notifCount,
-		Parent                 = notifContainer,
-	}
-	local card = makeFrame{
-		Size                   = UDim2.new(1, 0, 0, 58),
-		Position               = UDim2.new(1, 0, 0, 0),  -- start off-screen right
-		BackgroundColor3       = THEME.BG_ELEVATED,
-		BackgroundTransparency = 0.05,
-		ClipsDescendants       = true,
-		ZIndex                 = 100,
-		Parent                 = wrapper,
-	}
-	corner(card, 9)
-	stroke(card, accentCol, 1, 0.5)
-
-	-- accent left bar
-	makeFrame{
-		Size             = UDim2.new(0, 3, 1, 0),
-		BackgroundColor3 = accentCol,
-		ZIndex           = 101,
-		Parent           = card,
-	}
-	-- icon
-	makeLabel{
-		Size       = UDim2.new(0, 18, 0, 18),
-		Position   = UDim2.new(0, 11, 0.5, -9),
-		Text       = (ntype == "success" and "✓") or (ntype == "error" and "✕")
-			or (ntype == "warning" and "⚠") or "ℹ",
-		TextColor3 = accentCol,
-		TextSize   = 14,
-		Font       = Enum.Font.GothamBold,
-		ZIndex     = 101,
-		Parent     = card,
-	}
-	makeLabel{
-		Size           = UDim2.new(1, -50, 0, 16),
-		Position       = UDim2.new(0, 40, 0, 7),
-		Text           = title,
-		TextColor3     = THEME.TEXT_PRIMARY,
-		Font           = Enum.Font.GothamBold,
-		TextSize       = 11,
-		TextXAlignment = Enum.TextXAlignment.Left,
-		ZIndex         = 101,
-		Parent         = card,
-	}
-	makeLabel{
-		Size           = UDim2.new(1, -50, 0, 26),
-		Position       = UDim2.new(0, 40, 0, 24),
-		Text           = message,
-		TextColor3     = THEME.TEXT_SECONDARY,
-		TextSize       = 10,
-		TextXAlignment = Enum.TextXAlignment.Left,
-		TextWrapped    = true,
-		ZIndex         = 101,
-		Parent         = card,
-	}
-	local progress = makeFrame{
-		Size             = UDim2.new(1, 0, 0, 2),
-		Position         = UDim2.new(0, 0, 1, -2),
-		BackgroundColor3 = accentCol,
-		ZIndex           = 102,
-		Parent           = card,
-	}
-
-	-- Slide in: expand wrapper height, then slide card from right
-	safeTween(wrapper, TI.notif, {Size = UDim2.new(1, 0, 0, 58 + 5)})
-	safeTween(card,    TI.notif, {Position = UDim2.new(0, 0, 0, 0)})
-	safeTween(progress, TweenInfo.new(duration, Enum.EasingStyle.Linear),
-		{Size = UDim2.new(0, 0, 0, 2)})
-
-	task.delay(duration, function()
-		if not wrapper or not wrapper.Parent then
-			activeNotifs = math.max(0, activeNotifs - 1)
-			return
-		end
-		-- Slide out right, then collapse height
-		safeTween(card,    TI.minimize, {Position = UDim2.new(1, 10, 0, 0)})
-		safeTween(card,    TI.minimize, {BackgroundTransparency = 1})
-		task.wait(TI.minimize.Time)
-		safeTween(wrapper, TI.minimize, {Size = UDim2.new(1, 0, 0, 0)})
-		task.wait(TI.minimize.Time + 0.05)
-		pcall(function()
-			if wrapper and wrapper.Parent then wrapper:Destroy() end
-			activeNotifs = math.max(0, activeNotifs - 1)
-		end)
 	end)
-end
-
--- ╔══════════════════════════╗
--- ║    TOOLTIP SYSTEM        ║
--- ║  Desktop-only            ║
--- ╚══════════════════════════╝
-local IS_DESKTOP = not UserInputService.TouchEnabled or UserInputService.MouseEnabled
-
-local tooltipFrame = makeFrame{
-	Name                   = "Tooltip",
-	Size                   = UDim2.new(0, 120, 0, 22),
-	BackgroundColor3       = THEME.BG_ELEVATED,
-	BackgroundTransparency = 0.1,
-	Visible                = false,
-	ZIndex                 = 200,
-	Parent                 = ScreenGui,
-}
-corner(tooltipFrame, 4)
-stroke(tooltipFrame, THEME.BORDER, 1, 0.3)
-
-local tooltipLabel = makeLabel{
-	Size       = UDim2.new(1, -10, 1, 0),
-	Position   = UDim2.new(0, 5, 0, 0),
-	TextColor3 = THEME.TEXT_PRIMARY,
-	TextSize   = 10,
-	ZIndex     = 201,
-	Parent     = tooltipFrame,
-}
-
-local tooltipActive = false
-local tooltipHB     = nil
-local tooltipConns  = {}
-
-local function startTooltipHB()
-	if tooltipHB then return end
-	tooltipHB = RunService.Heartbeat:Connect(function()
-		if not tooltipActive then
-			tooltipHB:Disconnect()
-			tooltipHB = nil
-			return
-		end
-		local mp = UserInputService:GetMouseLocation()
-		tooltipFrame.Position = UDim2.new(0, mp.X + 10, 0, mp.Y - 28)
-	end)
-end
-
-local function showTooltip(text)
-	if not IS_DESKTOP then return end
-	tooltipLabel.Text = text
-	local ok, ts = pcall(TextService.GetTextSize, TextService, text, 10, Enum.Font.Gotham, Vector2.new(400, 22))
-	tooltipFrame.Size    = UDim2.new(0, (ok and ts) and (ts.X + 10) or 110, 0, 22)
-	tooltipFrame.Visible = true
-	tooltipActive        = true
-	startTooltipHB()
-end
-
-local function hideTooltip()
-	tooltipActive        = false
-	tooltipFrame.Visible = false
-end
-
-local function addTooltip(obj, getText)
-	if not IS_DESKTOP then return end
-	local function resolve()
-		return type(getText) == "function" and getText() or getText
-	end
-	local prev = tooltipConns[obj]
-	if prev then
-		pcall(function() prev[1]:Disconnect() end)
-		pcall(function() prev[2]:Disconnect() end)
-	end
-	local ec, lc
-	pcall(function() ec = obj.MouseEnter:Connect(function() showTooltip(resolve()) end) end)
-	pcall(function() lc = obj.MouseLeave:Connect(function() hideTooltip()           end) end)
-	tooltipConns[obj] = {ec, lc}
-end
-
-local function removeTooltip(obj)
-	local prev = tooltipConns[obj]
-	if not prev then return end
-	pcall(function() prev[1]:Disconnect() end)
-	pcall(function() prev[2]:Disconnect() end)
-	tooltipConns[obj] = nil
-end
-
--- ╔══════════════════════════╗
--- ║   RIPPLE CLICK EFFECT    ║
--- ╚══════════════════════════╝
-local function addRipple(button, color)
-	color = color or Color3.fromRGB(255, 255, 255)
-	button.ClipsDescendants = true
-	button.MouseButton1Down:Connect(function()
-		local mp  = UserInputService:GetMouseLocation()
-		local abs = button.AbsolutePosition
-		local rip = Instance.new("Frame")
-		rip.Size                   = UDim2.new(0, 0, 0, 0)
-		rip.Position               = UDim2.new(0, mp.X - abs.X, 0, mp.Y - abs.Y)
-		rip.AnchorPoint            = Vector2.new(0.5, 0.5)
-		rip.BackgroundColor3       = color
-		rip.BackgroundTransparency = 0.75
-		rip.ZIndex                 = button.ZIndex + 1
-		rip.Parent                 = button
-		corner(rip, 999)
-		local maxSize = math.max(button.AbsoluteSize.X, button.AbsoluteSize.Y) * 2.2
-		safeTween(rip, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-			Size = UDim2.new(0, maxSize, 0, maxSize),
-			BackgroundTransparency = 1,
-		})
-		game:GetService("Debris"):AddItem(rip, 0.4)
-	end)
-end
-
--- ╔══════════════════════════╗
--- ║   TOGGLE BUTTON          ║
--- ╚══════════════════════════╝
-local toggleBtn = Instance.new("ImageButton")
-toggleBtn.Name                   = "ToggleBtn"
-toggleBtn.Size                   = UDim2.new(0, 44, 0, 44)
-toggleBtn.AnchorPoint            = Vector2.new(0, 0)
-toggleBtn.Position               = UDim2.new(0, 10, 0, 10)
-toggleBtn.Image                  = "rbxassetid://14598484193"
-toggleBtn.BackgroundColor3       = THEME.BG_ELEVATED
-toggleBtn.BackgroundTransparency = 0
-toggleBtn.ZIndex                 = 10
-toggleBtn.Parent                 = ScreenGui
-corner(toggleBtn, 12)
-stroke(toggleBtn, THEME.ACCENT, 1.2, 0.4)
-
-local toggleGlow = makeFrame{
-	Size                   = UDim2.new(1, 10, 1, 10),
-	Position               = UDim2.new(0, -5, 0, -5),
-	BackgroundColor3       = THEME.ACCENT,
-	BackgroundTransparency = 0.88,
-	ZIndex                 = 9,
-	Parent                 = toggleBtn,
-}
-corner(toggleGlow, 15)
-
-local holdRing = makeFrame{
-	Size                   = UDim2.new(1, 6, 1, 6),
-	Position               = UDim2.new(0, -3, 0, -3),
-	BackgroundColor3       = THEME.ERROR,
-	BackgroundTransparency = 1,
-	ZIndex                 = 8,
-	Parent                 = toggleBtn,
-}
-corner(holdRing, 15)
-
-toggleBtn.MouseEnter:Connect(function()
-	safeTween(toggleBtn,  TI.hover, {BackgroundColor3 = THEME.BG_SURFACE})
-	safeTween(toggleGlow, TI.hover, {BackgroundTransparency = 0.72})
-end)
-toggleBtn.MouseLeave:Connect(function()
-	safeTween(toggleBtn,  TI.hover, {BackgroundColor3 = THEME.BG_ELEVATED})
-	safeTween(toggleGlow, TI.hover, {BackgroundTransparency = 0.88})
-end)
-addRipple(toggleBtn, THEME.ACCENT)
-addTooltip(toggleBtn, "Toggle MozCraft (I) | Hold 5s to close")
-
--- ╔══════════════════════════╗
--- ║   CONFIRMATION DIALOG    ║
--- ╚══════════════════════════╝
-local confirmDialog = makeFrame{
-	Name                   = "ConfirmDialog",
-	Size                   = UDim2.new(0, 300, 0, 138),
-	AnchorPoint            = Vector2.new(0.5, 0.5),
-	Position               = UDim2.new(0.5, 0, 0.5, 0),
-	BackgroundColor3       = THEME.BG_ELEVATED,
-	BackgroundTransparency = 1,
-	Visible                = false,
-	ZIndex                 = 500,
-	Parent                 = ScreenGui,
-}
-corner(confirmDialog, 11)
-stroke(confirmDialog, THEME.ERROR, 1.5, 0.4)
-
-local confirmBG = makeFrame{
-	Size             = UDim2.new(1, 0, 1, 0),
-	BackgroundColor3 = THEME.BG_PANEL,
-	ZIndex           = 499,
-	Parent           = confirmDialog,
-}
-corner(confirmBG, 11)
-gradient(confirmBG, THEME.GRAD_PANEL, 135)
-
-makeLabel{
-	Size           = UDim2.new(1, -24, 0, 20),
-	Position       = UDim2.new(0, 12, 0, 12),
-	Text           = "⚠  Close MozCraft?",
-	TextColor3     = THEME.TEXT_PRIMARY,
-	Font           = Enum.Font.GothamBold,
-	TextSize       = 13,
-	TextXAlignment = Enum.TextXAlignment.Left,
-	ZIndex         = 501,
-	Parent         = confirmDialog,
-}
-makeLabel{
-	Size           = UDim2.new(1, -24, 0, 32),
-	Position       = UDim2.new(0, 12, 0, 36),
-	Text           = "This will remove the MozCraft UI.\nRe-inject to use it again.",
-	TextColor3     = THEME.TEXT_SECONDARY,
-	TextSize       = 10,
-	TextWrapped    = true,
-	TextXAlignment = Enum.TextXAlignment.Left,
-	ZIndex         = 501,
-	Parent         = confirmDialog,
-}
-
-local confirmCancel = makeButton{
-	Size                   = UDim2.new(0, 120, 0, 28),
-	Position               = UDim2.new(0, 12, 1, -40),
-	BackgroundColor3       = THEME.BG_SURFACE,
-	BackgroundTransparency = 0,
-	Text                   = "Cancel",
-	TextColor3             = THEME.TEXT_SECONDARY,
-	TextSize               = 11,
-	ZIndex                 = 501,
-	Parent                 = confirmDialog,
-}
-corner(confirmCancel, 6)
-stroke(confirmCancel, THEME.BORDER, 1, 0.4)
-addRipple(confirmCancel)
-
-local confirmDestroy = makeButton{
-	Size                   = UDim2.new(0, 120, 0, 28),
-	Position               = UDim2.new(1, -132, 1, -40),
-	BackgroundColor3       = THEME.ERROR,
-	BackgroundTransparency = 0,
-	Text                   = "Close GUI",
-	TextColor3             = THEME.TEXT_PRIMARY,
-	Font                   = Enum.Font.GothamBold,
-	TextSize               = 11,
-	ZIndex                 = 501,
-	Parent                 = confirmDialog,
-}
-corner(confirmDestroy, 6)
-addRipple(confirmDestroy, Color3.fromRGB(255, 255, 255))
-
-local confirmBusy = false
-
-local function showConfirm()
-	if confirmBusy then return end
-	confirmBusy                          = true
-	confirmDialog.BackgroundTransparency = 1
-	confirmDialog.Size                   = UDim2.new(0, 275, 0, 120)
-	confirmDialog.Visible                = true
-	local t = safeTween(confirmDialog, TI.open, {
-		Size = UDim2.new(0, 300, 0, 138),
-		BackgroundTransparency = 0,
-	})
-	if t then
-		t.Completed:Connect(function() confirmBusy = false end)
-	else
-		confirmBusy = false
-	end
-end
-
-local function hideConfirm()
-	if confirmBusy then return end
-	confirmBusy = true
-	local t = safeTween(confirmDialog, TI.close, {
-		Size = UDim2.new(0, 275, 0, 120),
-		BackgroundTransparency = 1,
-	})
-	local function finish()
-		confirmDialog.Visible = false
-		confirmBusy = false
-	end
-	if t then t.Completed:Connect(finish) else finish() end
-end
-
-confirmCancel.MouseButton1Click:Connect(hideConfirm)
-
-confirmDestroy.MouseButton1Click:Connect(function()
-	cancelAllTweens()
-	disconnectAll()
-	hideTooltip()
-	if tooltipHB then
-		pcall(function() tooltipHB:Disconnect() end)
-		tooltipHB = nil
-	end
-	pcall(function() ScreenGui:Destroy() end)
 end)
 
--- ╔══════════════════════════╗
--- ║       MAIN WINDOW        ║
--- ║  Fixed 380×310           ║
--- ║  UIScale for device fit  ║
--- ╚══════════════════════════╝
-local fullSize = UDim2.new(0, BASE_W, 0, BASE_H)
-local miniSize = UDim2.new(0, BASE_W, 0, TB_H)
-
-local mainWindow = makeFrame{
-	Name                   = "MainWindow",
-	AnchorPoint            = Vector2.new(0.5, 0.5),
-	Size                   = fullSize,
-	Position               = UDim2.new(0.5, 0, 0.5, 0),
-	BackgroundColor3       = THEME.BG_PANEL,
-	BackgroundTransparency = 1,
-	ClipsDescendants       = true,
-	ZIndex                 = 5,
-	Visible                = false,
-	Parent                 = ScreenGui,
-}
-corner(mainWindow, 11)
-stroke(mainWindow, THEME.BORDER, 1, 0.3)
-
--- UIScale — controls device fit without changing internal layout
-local uiScale = Instance.new("UIScale")
-uiScale.Scale  = 1
-uiScale.Parent = mainWindow
-
-local mainBG = makeFrame{
-	Size             = UDim2.new(1, 0, 1, 0),
-	BackgroundColor3 = THEME.BG_DARK,
-	ZIndex           = 4,
-	Parent           = mainWindow,
-}
-corner(mainBG, 11)
-gradient(mainBG, ColorSequence.new{
-	ColorSequenceKeypoint.new(0,   Color3.fromRGB(16, 16, 20)),
-	ColorSequenceKeypoint.new(0.5, Color3.fromRGB(18, 18, 24)),
-	ColorSequenceKeypoint.new(1,   Color3.fromRGB(12, 12, 16)),
-}, 135)
-
--- Thin accent top line
-makeFrame{
-	Size                   = UDim2.new(1, 0, 0, 1),
-	BackgroundColor3       = THEME.ACCENT,
-	BackgroundTransparency = 0.45,
-	ZIndex                 = 6,
-	Parent                 = mainWindow,
-}
-
--- ╔══════════════════════════╗
--- ║   SCALE CALCULATION      ║
--- ║  Only scale down when    ║
--- ║  screen physically can't ║
--- ║  fit the window          ║
--- ╚══════════════════════════╝
-local function computeScale()
-	local vp = workspace.CurrentCamera.ViewportSize
-	-- Only scale down if screen is smaller than window + some margin
-	local scaleX = math.min(1, (vp.X - 20) / BASE_W)
-	local scaleY = math.min(1, (vp.Y - 20) / BASE_H)
-	return math.floor(math.min(scaleX, scaleY) * 100) / 100  -- round to 2dp
-end
-
-local function applyScale()
-	uiScale.Scale = computeScale()
-end
-
--- ╔══════════════════════════╗
--- ║       TITLE BAR          ║
--- ╚══════════════════════════╝
-local titleBar = makeFrame{
-	Name                   = "TitleBar",
-	Size                   = UDim2.new(1, 0, 0, TB_H),
-	BackgroundColor3       = THEME.BG_SURFACE,
-	BackgroundTransparency = 0.25,
-	ZIndex                 = 7,
-	Parent                 = mainWindow,
-}
-corner(titleBar, 11)
--- Square off bottom corners
-makeFrame{
-	Size                   = UDim2.new(1, 0, 0.5, 0),
-	Position               = UDim2.new(0, 0, 0.5, 0),
-	BackgroundColor3       = THEME.BG_SURFACE,
-	BackgroundTransparency = 0.25,
-	ZIndex                 = 7,
-	Parent                 = titleBar,
-}
-
--- Logo box [M]
-local logoBox = makeFrame{
-	Size             = UDim2.new(0, 22, 0, 22),
-	Position         = UDim2.new(0, 9, 0.5, -11),
-	BackgroundColor3 = THEME.ACCENT,
-	ZIndex           = 8,
-	Parent           = titleBar,
-}
-corner(logoBox, 5)
-gradient(logoBox, THEME.GRAD_ACCENT, 135)
-makeLabel{
-	Size       = UDim2.new(1, 0, 1, 0),
-	Text       = "M",
-	TextColor3 = THEME.TEXT_PRIMARY,
-	Font       = Enum.Font.GothamBlack,
-	TextSize   = 12,
-	ZIndex     = 9,
-	Parent     = logoBox,
-}
-
--- "MozCraft" text
-makeLabel{
-	Size           = UDim2.new(0, 72, 1, 0),
-	Position       = UDim2.new(0, 36, 0, 0),
-	Text           = "MozCraft",
-	TextColor3     = THEME.TEXT_PRIMARY,
-	Font           = Enum.Font.GothamBlack,
-	TextSize       = 13,
-	TextXAlignment = Enum.TextXAlignment.Left,
-	ZIndex         = 8,
-	Parent         = titleBar,
-}
-
--- "v2.5"
-makeLabel{
-	Size           = UDim2.new(0, 28, 1, 0),
-	Position       = UDim2.new(0, 112, 0, 0),
-	Text           = "v2.5",
-	TextColor3     = THEME.TEXT_MUTED,
-	Font           = Enum.Font.Gotham,
-	TextSize       = 9,
-	TextXAlignment = Enum.TextXAlignment.Left,
-	ZIndex         = 8,
-	Parent         = titleBar,
-}
-
--- Script counter — centered
-local scriptCounterLabel = makeLabel{
-	Name           = "ScriptCounter",
-	Size           = UDim2.new(0, 80, 1, 0),
-	AnchorPoint    = Vector2.new(0.5, 0),
-	Position       = UDim2.new(0.5, 0, 0, 0),
-	Text           = "0 Scripts",
-	TextColor3     = THEME.TEXT_MUTED,
-	Font           = Enum.Font.Gotham,
-	TextSize       = 9,
-	ZIndex         = 8,
-	Parent         = titleBar,
-}
-
--- Window buttons flush right
-local function makeWindowBtn(icon, xOffset, col)
-	local btn = makeButton{
-		Size                   = UDim2.new(0, 22, 0, 22),
-		Position               = UDim2.new(1, xOffset, 0.5, -11),
-		BackgroundColor3       = col,
-		BackgroundTransparency = 0,
-		Text                   = icon,
-		TextColor3             = THEME.TEXT_PRIMARY,
-		TextSize               = 10,
-		Font                   = Enum.Font.GothamBold,
-		ZIndex                 = 9,
-		Parent                 = titleBar,
-	}
-	corner(btn, 5)
-	btn.MouseEnter:Connect(function()
-		safeTween(btn, TI.hover, {BackgroundTransparency = 0.25})
-	end)
-	btn.MouseLeave:Connect(function()
-		safeTween(btn, TI.hover, {BackgroundTransparency = 0})
-	end)
-	addRipple(btn)
-	return btn
-end
-
-local closeBtn    = makeWindowBtn("✕", -8,  Color3.fromRGB(200, 55, 55))
-local minimizeBtn = makeWindowBtn("—", -36, Color3.fromRGB(40, 40, 52))
-addTooltip(closeBtn,    "Close MozCraft")
-addTooltip(minimizeBtn, "Minimize")
-
-closeBtn.MouseButton1Click:Connect(function()
-	playSound(SND.close)
-	showConfirm()
+toggle.MouseButton1Up:Connect(function()
+	holding = false
 end)
 
--- ╔══════════════════════════╗
--- ║    WINDOW DRAG LOGIC     ║
--- ║  Clamped to screen       ║
--- ║  AnchorPoint(0,0)        ║
--- ╚══════════════════════════╝
--- Change to AnchorPoint(0,0) for drag math simplicity
-mainWindow.AnchorPoint = Vector2.new(0, 0)
+--------------------------------------------------
+-- MAIN GUI
+--------------------------------------------------
+local main = Instance.new("Frame")
+main.Size = UDim2.new(0,450,0,400)
+main.Position = UDim2.new(0.5,-225,0.5,-200)
+main.BackgroundColor3 = Color3.fromRGB(40,40,40)
+main.BackgroundTransparency = 0
+main.Parent = gui
+Instance.new("UICorner",main).CornerRadius = UDim.new(0,10)
 
-local dragging       = false
-local dragOffset     = Vector2.new(0, 0)
-local dragStarted    = false  -- prevent micro-drags on click
-
-titleBar.InputBegan:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.MouseButton1
-		or input.UserInputType == Enum.UserInputType.Touch then
-		dragging     = true
-		dragStarted  = false
-		local ap     = mainWindow.AbsolutePosition
-		local mp     = input.Position
-		dragOffset   = Vector2.new(mp.X - ap.X, mp.Y - ap.Y)
-	end
-end)
-
-trackConn(UserInputService.InputChanged:Connect(function(input)
-	if not dragging then return end
-	if input.UserInputType ~= Enum.UserInputType.MouseMovement
-		and input.UserInputType ~= Enum.UserInputType.Touch then return end
-	dragStarted = true
-	local mp  = input.Position
-	local vp  = ScreenGui.AbsoluteSize
-	local ws  = mainWindow.AbsoluteSize
-	-- Account for UIScale: AbsoluteSize is already scaled
-	local nx  = math.clamp(mp.X - dragOffset.X, 0, math.max(0, vp.X - ws.X))
-	local ny  = math.clamp(mp.Y - dragOffset.Y, 0, math.max(0, vp.Y - ws.Y))
-	mainWindow.Position = UDim2.new(0, nx, 0, ny)
-end))
-
-trackConn(UserInputService.InputEnded:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.MouseButton1
-		or input.UserInputType == Enum.UserInputType.Touch then
-		dragging    = false
-		dragStarted = false
-	end
-end))
-
--- ╔══════════════════════════╗
--- ║     MINIMIZE LOGIC       ║
--- ║  Preserves exact size    ║
--- ║  No clipping artifacts   ║
--- ╚══════════════════════════╝
-local isMinimized  = false
-local savedSize    = fullSize
-local minimizeBusy = false
-
-minimizeBtn.MouseButton1Click:Connect(function()
-	if minimizeBusy then return end
-	minimizeBusy = true
-	playSound(SND.click)
-	isMinimized = not isMinimized
-
-	if isMinimized then
-		savedSize        = mainWindow.Size
-		minimizeBtn.Text = "□"
-		local t = safeTween(mainWindow, TI.minimize, {Size = miniSize})
-		if t then
-			t.Completed:Connect(function() minimizeBusy = false end)
-		else
-			minimizeBusy = false
-		end
-	else
-		minimizeBtn.Text = "—"
-		local t = safeTween(mainWindow, TI.minimize, {Size = savedSize})
-		if t then
-			t.Completed:Connect(function() minimizeBusy = false end)
-		else
-			minimizeBusy = false
-		end
-	end
-end)
-
--- ╔══════════════════════════╗
--- ║   CENTER HELPER          ║
--- ║  Respects UIScale        ║
--- ╚══════════════════════════╝
-local function centerWindow()
-	local vp = ScreenGui.AbsoluteSize
-	local sc = uiScale.Scale
-	local sw = BASE_W * sc
-	local sh = BASE_H * sc
-	local nx = math.clamp((vp.X - sw) * 0.5, 0, math.max(0, vp.X - sw))
-	local ny = math.clamp((vp.Y - sh) * 0.5, 0, math.max(0, vp.Y - sh))
-	mainWindow.Position = UDim2.new(0, nx, 0, ny)
-end
-
--- Clamp current position inside screen bounds
-local function clampWindow()
-	if not mainWindow.Visible then return end
-	local vp  = ScreenGui.AbsoluteSize
-	local ws  = mainWindow.AbsoluteSize
-	local pos = mainWindow.AbsolutePosition
-	local nx  = math.clamp(pos.X, 0, math.max(0, vp.X - ws.X))
-	local ny  = math.clamp(pos.Y, 0, math.max(0, vp.Y - ws.Y))
-	mainWindow.Position = UDim2.new(0, nx, 0, ny)
-end
-
--- ╔══════════════════════════╗
--- ║   OPEN / CLOSE WINDOW    ║
--- ╚══════════════════════════╝
-local windowOpen = false
-
-local function openWindow()
-	windowOpen = true
-	applyScale()
-	centerWindow()
-	mainWindow.Visible                = true
-	mainWindow.BackgroundTransparency = 1
-	mainWindow.Size                   = UDim2.new(0, BASE_W - 20, 0, BASE_H - 20)
-	safeTween(blurOverlay, TI.open, {BackgroundTransparency = 0.65})
-	safeTween(mainWindow,  TI.open, {Size = fullSize, BackgroundTransparency = 0})
-	playSound(SND.open)
-end
-
-local function closeWindow()
-	windowOpen = false
-	safeTween(blurOverlay, TI.close, {BackgroundTransparency = 1})
-	local t = safeTween(mainWindow, TI.close, {
-		Size = UDim2.new(0, BASE_W - 20, 0, BASE_H - 20),
-		BackgroundTransparency = 1,
-	})
-	local function finish()
-		if not windowOpen then
-			mainWindow.Visible = false
-		end
-	end
-	if t then t.Completed:Connect(finish) else finish() end
-	playSound(SND.close)
-end
-
-toggleBtn.MouseButton1Click:Connect(function()
-	if windowOpen then closeWindow() else openWindow() end
-end)
-
--- ╔══════════════════════════╗
--- ║     SEARCH BAR           ║
--- ╚══════════════════════════╝
-local searchContainer = makeFrame{
-	Size             = UDim2.new(1, -16, 0, 28),
-	Position         = UDim2.new(0, 8, 0, SB_Y),
-	BackgroundColor3 = THEME.BG_INPUT,
-	ZIndex           = 7,
-	Parent           = mainWindow,
+local mainGradient = Instance.new("UIGradient")
+mainGradient.Color = ColorSequence.new{
+	ColorSequenceKeypoint.new(0,Color3.fromRGB(30,30,30)),
+	ColorSequenceKeypoint.new(0.7,Color3.fromRGB(80,80,80)),
+	ColorSequenceKeypoint.new(1,Color3.fromRGB(180,180,180))
 }
-corner(searchContainer, 7)
-local searchStroke = stroke(searchContainer, THEME.BORDER, 1, 0.25)
+mainGradient.Rotation = 90
+mainGradient.Parent = main
 
-makeLabel{
-	Size       = UDim2.new(0, 24, 1, 0),
-	Position   = UDim2.new(0, 2, 0, 0),
-	Text       = "🔍",
-	TextSize   = 11,
-	TextColor3 = THEME.TEXT_MUTED,
-	ZIndex     = 8,
-	Parent     = searchContainer,
-}
-
-local searchBox = Instance.new("TextBox")
-searchBox.Name                   = "SearchBox"
-searchBox.Size                   = UDim2.new(1, -30, 1, 0)
-searchBox.Position               = UDim2.new(0, 24, 0, 0)
-searchBox.BackgroundTransparency = 1
-searchBox.PlaceholderText        = "Search scripts..."
-searchBox.PlaceholderColor3      = THEME.TEXT_MUTED
-searchBox.Text                   = ""
-searchBox.TextColor3             = THEME.TEXT_PRIMARY
-searchBox.Font                   = Enum.Font.Gotham
-searchBox.TextSize               = 11
-searchBox.ClearTextOnFocus       = false
-searchBox.ZIndex                 = 8
-searchBox.Parent                 = searchContainer
-
-searchBox.Focused:Connect(function()
-	safeTween(searchContainer, TI.hover, {BackgroundColor3 = THEME.BG_ELEVATED})
-	searchStroke.Color        = THEME.ACCENT
-	searchStroke.Thickness    = 1.2
-	searchStroke.Transparency = 0
-end)
-searchBox.FocusLost:Connect(function()
-	safeTween(searchContainer, TI.hover, {BackgroundColor3 = THEME.BG_INPUT})
-	searchStroke.Color        = THEME.BORDER
-	searchStroke.Thickness    = 1
-	searchStroke.Transparency = 0.25
+toggle.MouseButton1Click:Connect(function()
+	clickSound:Play()
+	main.Visible = not main.Visible
 end)
 
--- ╔══════════════════════════╗
--- ║       TAB BAR            ║
--- ╚══════════════════════════╝
-local tabBarContainer = makeFrame{
-	Name             = "TabBar",
-	Size             = UDim2.new(1, -16, 0, 28),
-	Position         = UDim2.new(0, 8, 0, TAB_Y),
-	BackgroundColor3 = THEME.BG_INPUT,
-	ZIndex           = 7,
-	Parent           = mainWindow,
-}
-corner(tabBarContainer, 7)
-stroke(tabBarContainer, THEME.BORDER, 1, 0.35)
+--------------------------------------------------
+-- TITLE
+--------------------------------------------------
+local title = Instance.new("TextLabel")
+title.Text = "MozCraft Menu"
+title.Size = UDim2.new(1,0,0,40)
+title.BackgroundTransparency = 1
+title.TextColor3 = Color3.new(1,1,1)
+title.Font = Enum.Font.GothamBold
+title.TextSize = 22
+title.Parent = main
 
+--------------------------------------------------
+-- SEARCH LABEL
+--------------------------------------------------
+local searchLabel = Instance.new("TextLabel")
+searchLabel.Text = "Search"
+searchLabel.Size = UDim2.new(1,-20,0,15)
+searchLabel.Position = UDim2.new(0,10,0,40)
+searchLabel.BackgroundTransparency = 1
+searchLabel.TextColor3 = Color3.fromRGB(200,200,200)
+searchLabel.Font = Enum.Font.Gotham
+searchLabel.TextSize = 12
+searchLabel.TextXAlignment = Enum.TextXAlignment.Left
+searchLabel.Parent = main
+
+--------------------------------------------------
+-- SEARCH BOX
+--------------------------------------------------
+local search = Instance.new("TextBox")
+search.Size = UDim2.new(1,-20,0,30)
+search.Position = UDim2.new(0,10,0,55)
+search.PlaceholderText = ""
+search.Text = ""
+search.BackgroundColor3 = Color3.fromRGB(35,35,35)
+search.TextColor3 = Color3.new(1,1,1)
+search.Parent = main
+Instance.new("UICorner",search).CornerRadius = UDim.new(0,6)
+
+search:GetPropertyChangedSignal("Text"):Connect(function()
+	playTypingSound()
+end)
+
+--------------------------------------------------
+-- TAB BAR
+--------------------------------------------------
 local tabScroll = Instance.new("ScrollingFrame")
-tabScroll.Name                   = "TabScroll"
-tabScroll.Size                   = UDim2.new(1, -4, 1, 0)
-tabScroll.Position               = UDim2.new(0, 2, 0, 0)
-tabScroll.ScrollingDirection     = Enum.ScrollingDirection.X
-tabScroll.CanvasSize             = UDim2.new(0, 0, 0, 0)
-tabScroll.ScrollBarThickness     = 0
+tabScroll.Size = UDim2.new(1,-20,0,35)
+tabScroll.Position = UDim2.new(0,10,0,90)
+tabScroll.ScrollingDirection = Enum.ScrollingDirection.X
+tabScroll.CanvasSize = UDim2.new(0,0,0,0)
+tabScroll.ScrollBarThickness = 0
 tabScroll.BackgroundTransparency = 1
-tabScroll.ZIndex                 = 8
-tabScroll.Parent                 = tabBarContainer
+tabScroll.Parent = main
 
 local tabLayout = Instance.new("UIListLayout")
-tabLayout.FillDirection     = Enum.FillDirection.Horizontal
-tabLayout.Padding           = UDim.new(0, 2)
-tabLayout.VerticalAlignment = Enum.VerticalAlignment.Center
-tabLayout.Parent            = tabScroll
-padding(tabScroll, 2, 0, 2, 0)
+tabLayout.FillDirection = Enum.FillDirection.Horizontal
+tabLayout.Padding = UDim.new(0,5)
+tabLayout.Parent = tabScroll
 
-local tabHighlight = makeFrame{
-	Name             = "TabHighlight",
-	Size             = UDim2.new(0, 70, 1, -4),
-	Position         = UDim2.new(0, 2, 0, 2),
-	BackgroundColor3 = THEME.ACCENT,
-	ZIndex           = 7,
-	Parent           = tabBarContainer,
+-- overlay sits on top of the tabScroll area but is a sibling so UIListLayout won't include the highlight in layout
+local tabOverlay = Instance.new("Frame")
+tabOverlay.Size = tabScroll.Size
+tabOverlay.Position = tabScroll.Position
+tabOverlay.BackgroundTransparency = 1
+tabOverlay.Parent = main
+tabOverlay.ZIndex = 0
+tabScroll.ZIndex = 1
+
+--------------------------------------------------
+-- TAB HIGHLIGHT SLIDER (parented to overlay so layout doesn't reserve space)
+--------------------------------------------------
+local highlight = Instance.new("Frame")
+highlight.Size = UDim2.new(0,110,1,0)
+highlight.BackgroundTransparency = 0
+highlight.Parent = tabOverlay
+highlight.ZIndex = 0
+Instance.new("UICorner",highlight)
+
+local hGradient = Instance.new("UIGradient")
+hGradient.Color = ColorSequence.new{
+	ColorSequenceKeypoint.new(0,Color3.fromRGB(255,170,0)),
+	ColorSequenceKeypoint.new(1,Color3.fromRGB(255,90,0))
 }
-corner(tabHighlight, 5)
-gradient(tabHighlight, THEME.GRAD_ACCENT, 135)
+hGradient.Parent = highlight
 
--- ╔══════════════════════════╗
--- ║     CONTENT AREA         ║
--- ╚══════════════════════════╝
-local contentHolder = makeFrame{
-	Name                   = "ContentHolder",
-	Size                   = UDim2.new(1, -16, 1, -(CONTENT_Y + 6)),
-	Position               = UDim2.new(0, 8, 0, CONTENT_Y),
-	BackgroundTransparency = 1,
-	ZIndex                 = 7,
-	Parent                 = mainWindow,
-}
+--------------------------------------------------
+-- CONTENT HOLDER
+--------------------------------------------------
 
-local emptyState = makeLabel{
-	Name                   = "EmptyState",
-	Size                   = UDim2.new(1, 0, 1, 0),
-	AnchorPoint            = Vector2.new(0.5, 0.5),
-	Position               = UDim2.new(0.5, 0, 0.5, 0),
-	Text                   = "Select a category above\nto view scripts",
-	TextColor3             = THEME.TEXT_MUTED,
-	BackgroundTransparency = 1,
-	Font                   = Enum.Font.GothamSemibold,
-	TextSize               = 11,
-	TextWrapped            = true,
-	TextTransparency       = 0.3,
-	ZIndex                 = 8,
-	Visible                = true,
-	Parent                 = contentHolder,
-}
+local holder = Instance.new("Frame")
+holder.Size = UDim2.new(1,-20,1,-140)
+holder.Position = UDim2.new(0,10,0,125)
+holder.BackgroundTransparency = 1
+holder.Parent = main
 
--- ╔══════════════════════════╗
--- ║    EXECUTION HISTORY     ║
--- ╚══════════════════════════╝
-local execHistory = safeRead(HIST_FILE)
-local function recordHistory(name, logic)
-	table.insert(execHistory, 1, {name = name, logic = logic, time = os.time()})
-	if #execHistory > 50 then table.remove(execHistory) end
-	safeWrite(HIST_FILE, execHistory)
-end
+-- EMPTY MENU TEXT
+local activeLabel = Instance.new("TextLabel")
+activeLabel.Size = UDim2.new(1,0,1,0)
+activeLabel.BackgroundTransparency = 1
+activeLabel.Text = "🟢 Active Service"
+activeLabel.TextColor3 = Color3.fromRGB(0,255,100)
+activeLabel.Font = Enum.Font.GothamBold
+activeLabel.TextSize = 26
+activeLabel.TextXAlignment = Enum.TextXAlignment.Center
+activeLabel.TextYAlignment = Enum.TextYAlignment.Center
+activeLabel.Parent = holder
 
--- ╔══════════════════════════╗
--- ║     FAVORITES SYSTEM     ║
--- ╚══════════════════════════╝
-local favorites = safeRead(FAV_FILE)
--- Sanitize: ensure only boolean true values remain
-for k, v in pairs(favorites) do
-	if v ~= true then favorites[k] = nil end
-end
-local function saveFavorites()
-	safeWrite(FAV_FILE, favorites)
-end
+--------------------------------------------------
+-- STORAGE
+--------------------------------------------------
+local MozCraft = {}
+local pages = {}
+local allSlots = {}
 
--- ╔══════════════════════════╗
--- ║     MAIN LIBRARY TABLE   ║
--- ╚══════════════════════════╝
-local MozCraft   = {}
-local pages      = {}
-local tabButtons = {}
-local tabCounts  = {}
-local totalSlots = 0
-
-local function updateScriptCounter()
-	scriptCounterLabel.Text = totalSlots .. " Script" .. (totalSlots == 1 and "" or "s")
-end
-
-local function updateTabCounter(tabName)
-	local btn = tabButtons[tabName]
-	if not btn then return end
-	local badge = btn:FindFirstChild("CountBadge")
-	if badge then
-		badge.Text = tostring(tabCounts[tabName] or 0)
-	end
-end
-
-local function refreshTabCanvas()
-	task.defer(function()
-		if tabLayout and tabLayout.Parent then
-			tabScroll.CanvasSize = UDim2.new(0, tabLayout.AbsoluteContentSize.X + 6, 0, 0)
-		end
-	end)
-end
-
-local currentTab = nil
-
--- ╔══════════════════════════╗
--- ║  TAB HIGHLIGHT — FIXED   ║
--- ║  Waits 1 frame so sizes  ║
--- ║  are fully computed      ║
--- ╚══════════════════════════╝
-local function repositionHighlight(name)
-	if not name then return end
-	local targetBtn = tabButtons[name]
-	if not targetBtn then return end
-	-- Use task.defer to ensure layout has resolved button sizes
-	task.defer(function()
-		if not targetBtn or not targetBtn.Parent then return end
-		if not tabBarContainer or not tabBarContainer.Parent then return end
-		-- Relative X within the tabBarContainer (not tabScroll, which can be scrolled)
-		local barAbsX = tabBarContainer.AbsolutePosition.X
-		local btnAbsX = targetBtn.AbsolutePosition.X
-		local relX    = btnAbsX - barAbsX
-		local btnW    = targetBtn.AbsoluteSize.X
-		safeTween(tabHighlight, TI.tab, {
-			Position = UDim2.new(0, relX, 0, 2),
-			Size     = UDim2.new(0, btnW, 1, -4),
-		})
-	end)
-end
-
--- Count actual favorite cards in page
-local function countFavSlots()
-	local favPage = pages["Favorites ⭐"]
-	if not favPage then return 0 end
-	local n = 0
-	for _, c in ipairs(favPage:GetChildren()) do
-		if c:IsA("TextButton") then n += 1 end
-	end
-	return n
-end
-
--- ╔══════════════════════════╗
--- ║       CREATE TAB         ║
--- ╚══════════════════════════╝
+--------------------------------------------------
+-- CREATE TAB
+--------------------------------------------------
 function MozCraft:createTab(name)
 	if pages[name] then return end
-	tabCounts[name] = 0
 
-	local btn = makeButton{
-		Name                   = "Tab_" .. name,
-		Text                   = name .. " ",
-		Size                   = UDim2.new(0, 0, 1, -4),
-		BackgroundColor3       = Color3.fromRGB(0, 0, 0),
-		BackgroundTransparency = 1,
-		TextColor3             = THEME.TEXT_SECONDARY,
-		Font                   = Enum.Font.GothamSemibold,
-		TextSize               = 10,
-		AutomaticSize          = Enum.AutomaticSize.X,
-		ZIndex                 = 9,
-		Parent                 = tabScroll,
+	local btn = Instance.new("TextButton")
+	btn.Text = name
+	btn.Size = UDim2.new(0,110,1,0)
+	btn.BackgroundColor3 = Color3.fromRGB(35,35,35)
+	btn.TextColor3 = Color3.new(1,1,1)
+	btn.Parent = tabScroll
+	Instance.new("UICorner",btn).CornerRadius = UDim.new(0,8)
+
+	local g = Instance.new("UIGradient")
+	g.Color = ColorSequence.new{
+		ColorSequenceKeypoint.new(0,Color3.fromRGB(25,25,25)),
+		ColorSequenceKeypoint.new(0.7,Color3.fromRGB(80,80,80)),
+		ColorSequenceKeypoint.new(1,Color3.fromRGB(170,170,170))
 	}
-	corner(btn, 5)
-	padding(btn, 0, 8, 0, 8)
+	g.Rotation = 90
+	g.Parent = btn
 
-	-- Count badge
-	makeLabel{
-		Name       = "CountBadge",
-		Size       = UDim2.new(0, 14, 0, 12),
-		Position   = UDim2.new(1, -16, 0.5, -6),
-		Text       = "0",
-		TextColor3 = THEME.TEXT_MUTED,
-		Font       = Enum.Font.GothamBold,
-		TextSize   = 8,
-		ZIndex     = 10,
-		Parent     = btn,
-	}
-
-	-- Content page — 4-column grid
 	local page = Instance.new("ScrollingFrame")
-	page.Name                   = "Page_" .. name
-	page.Size                   = UDim2.new(1, 0, 1, 0)
-	page.CanvasSize             = UDim2.new(0, 0, 0, 0)
-	page.AutomaticCanvasSize    = Enum.AutomaticSize.Y
-	page.ScrollBarThickness     = 2
-	page.ScrollBarImageColor3   = THEME.ACCENT
+	page.Size = UDim2.new(1,0,1,0)
+	page.CanvasSize = UDim2.new(0,0,0,0)
+	page.ScrollBarThickness = 6
+	page.ScrollBarImageColor3 = Color3.fromRGB(200,200,200)
 	page.BackgroundTransparency = 1
-	page.Visible                = false
-	page.ZIndex                 = 8
-	page.Parent                 = contentHolder
+	page.Visible = false
+	page.Parent = holder
 
 	local grid = Instance.new("UIGridLayout")
-	grid.CellSize    = UDim2.new(0, 78, 0, 78)
-	grid.CellPadding = UDim2.new(0, 6, 0, 6)
-	grid.SortOrder   = Enum.SortOrder.Name
-	grid.Parent      = page
-	padding(page, 4, 4, 4, 4)
+	grid.CellSize = UDim2.new(0,90,0,90)
+	grid.CellPadding = UDim2.new(0,6,0,6)
+	grid.Parent = page
+
+	grid:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+		page.CanvasSize = UDim2.new(0,0,0,grid.AbsoluteContentSize.Y+10)
+	end)
 
 	btn.MouseButton1Click:Connect(function()
-		playSound(SND.click)
-		MozCraft:selectTab(name)
-	end)
-	btn.MouseEnter:Connect(function()
-		if currentTab == name then return end
-		safeTween(btn, TI.hover, {TextColor3 = Color3.fromRGB(195, 195, 205)})
-	end)
-	btn.MouseLeave:Connect(function()
-		if currentTab == name then return end
-		safeTween(btn, TI.hover, {TextColor3 = THEME.TEXT_SECONDARY})
-	end)
+		clickSound:Play()
+		
+		activeLabel.Visible = false
 
-	pages[name]      = page
-	tabButtons[name] = btn
-	refreshTabCanvas()
-end
-
--- ╔══════════════════════════╗
--- ║       SELECT TAB         ║
--- ╚══════════════════════════╝
-function MozCraft:selectTab(name)
-	if not pages[name] then return end
-	emptyState.Visible = false
-
-	for tabName, p in pairs(pages) do
-		p.Visible = false
-		local b = tabButtons[tabName]
-		if b then
-			safeTween(b, TI.tab, {TextColor3 = THEME.TEXT_SECONDARY})
+		for _,p in pairs(pages) do
+			p.Visible=false
 		end
-	end
 
-	pages[name].Visible = true
-	if tabButtons[name] then
-		safeTween(tabButtons[name], TI.tab, {TextColor3 = THEME.TEXT_PRIMARY})
-	end
-	currentTab = name
-	repositionHighlight(name)
+		page.Visible=true
+
+		TweenService:Create(
+			highlight,
+			TweenInfo.new(0.25,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),
+			{Position = btn.Position}
+		):Play()
+	end)
+
+	pages[name] = page
+	tabScroll.CanvasSize = UDim2.new(0, tabLayout.AbsoluteContentSize.X + 20,0,0)
 end
 
+--------------------------------------------------
+-- DEFAULT TAB
+--------------------------------------------------
 MozCraft:createTab("Favorites ⭐")
 
--- ╔══════════════════════════╗
--- ║       CREATE SLOT        ║
--- ║  78×78 fixed cards       ║
--- ║  Hover: border+brightness║
--- ║  NO scale, NO bounce     ║
--- ╚══════════════════════════╝
+--------------------------------------------------
+-- CREATE SLOT
+--------------------------------------------------
 function MozCraft:createSlot(data)
-	if type(data) ~= "table" or not data.Name or not data.Tab then
-		warn("[MozCraft] createSlot: invalid data table (Name and Tab required)")
-		return
-	end
-	data.Logic  = data.Logic  or "Execute"
-	data.Icon   = tostring(data.Icon or "3959438440")
-	data.Script = data.Script or ""
-
 	if not pages[data.Tab] then self:createTab(data.Tab) end
 
-	-- Only count non-favorites tabs toward totalSlots
-	if data.Tab ~= "Favorites ⭐" then
-		tabCounts[data.Tab] = (tabCounts[data.Tab] or 0) + 1
-		updateTabCounter(data.Tab)
-		totalSlots += 1
-		updateScriptCounter()
-	end
+	local function buildSlot(parent)
 
-	local function buildSlot(parentPage)
-		-- Prevent duplicate: destroy existing slot with same name in this page
-		local existing = parentPage:FindFirstChild(data.Name)
-		if existing then existing:Destroy() end
+		local slot = Instance.new("TextButton")
+		slot.Size = UDim2.new(0,90,0,90)
+		slot.BackgroundColor3 = Color3.fromRGB(40,40,40)
+		slot.Text = ""
+		slot.Name = data.Name
+		slot.Parent = parent
+		Instance.new("UICorner",slot).CornerRadius = UDim.new(0,8)
 
-		local slot = makeButton{
-			Name                   = data.Name,
-			Size                   = UDim2.new(0, 78, 0, 78),
-			BackgroundColor3       = THEME.BG_CARD,
-			BackgroundTransparency = 0,
-			Text                   = "",
-			ZIndex                 = 9,
-			Parent                 = parentPage,
+		local sg = Instance.new("UIGradient")
+		sg.Color = ColorSequence.new{
+			ColorSequenceKeypoint.new(0,Color3.fromRGB(25,25,25)),
+			ColorSequenceKeypoint.new(0.7,Color3.fromRGB(90,90,90)),
+			ColorSequenceKeypoint.new(1,Color3.fromRGB(180,180,180))
 		}
-		corner(slot, 9)
-		local slotStroke = stroke(slot, THEME.BORDER, 1, 0.5)
-		addRipple(slot, THEME.ACCENT)
-		gradient(slot, ColorSequence.new{
-			ColorSequenceKeypoint.new(0, Color3.fromRGB(26, 26, 34)),
-			ColorSequenceKeypoint.new(1, Color3.fromRGB(18, 18, 24)),
-		}, 135)
+		sg.Rotation = 90
+		sg.Parent = slot
 
-		-- Icon
 		local icon = Instance.new("ImageLabel")
-		icon.Size                   = UDim2.new(0, 38, 0, 38)
-		icon.Position               = UDim2.new(0.5, -19, 0, 8)
+		icon.Size = UDim2.new(0,60,0,60)
+		icon.Position = UDim2.new(0.5,-30,0,5)
 		icon.BackgroundTransparency = 1
-		icon.Image                  = "rbxassetid://" .. data.Icon
-		icon.ZIndex                 = 10
-		icon.Parent                 = slot
+		icon.Image = "rbxassetid://"..data.Icon
+		icon.Parent = slot
 
-		local label = makeLabel{
-			Size         = UDim2.new(1, -4, 0, 14),
-			Position     = UDim2.new(0, 2, 1, -17),
-			Text         = data.Name,
-			TextColor3   = THEME.TEXT_SECONDARY,
-			Font         = Enum.Font.Gotham,
-			TextSize     = 9,
-			TextTruncate = Enum.TextTruncate.AtEnd,
-			ZIndex       = 10,
-			Parent       = slot,
-		}
+		local text = Instance.new("TextLabel")
+		text.Size = UDim2.new(1,0,0,20)
+		text.Position = UDim2.new(0,0,1,-20)
+		text.BackgroundTransparency = 1
+		text.Text = data.Name
+		text.TextColor3 = Color3.new(1,1,1)
+		text.Font = Enum.Font.Gotham
+		text.TextSize = 14
+		text.Parent = slot
 
-		local isFav = favorites[data.Name] == true
-		local star = makeButton{
-			Name                   = "StarBtn",
-			Size                   = UDim2.new(0, 15, 0, 15),
-			Position               = UDim2.new(1, -17, 0, 2),
-			BackgroundTransparency = 1,
-			Text                   = isFav and "★" or "☆",
-			TextColor3             = isFav and THEME.STAR or THEME.TEXT_MUTED,
-			TextSize               = 11,
-			Font                   = Enum.Font.GothamBold,
-			ZIndex                 = 11,
-			Parent                 = slot,
-		}
+		local star = Instance.new("TextButton")
+		star.Text = favorites[data.Name] and "★" or "☆"
+		star.Size = UDim2.new(0,18,0,18)
+		star.Position = UDim2.new(1,-20,0,2)
+		star.BackgroundTransparency = 1
+		star.TextColor3 = favorites[data.Name] and Color3.fromRGB(255,221,0) or Color3.fromRGB(150,150,150)
+		star.Parent = slot
 
-		local statusDot = makeFrame{
-			Size             = UDim2.new(0, 4, 0, 4),
-			Position         = UDim2.new(0, 3, 0, 3),
-			BackgroundColor3 = THEME.TEXT_MUTED,
-			ZIndex           = 11,
-			Parent           = slot,
-		}
-		corner(statusDot, 2)
-
-		addTooltip(slot, data.Name .. (data.Logic == "Copy" and " — Copy" or " — Execute"))
-		addTooltip(star, function()
-			return favorites[data.Name] and "Remove Favorite" or "Add Favorite"
-		end)
-
-		-- Hover: only border color + background brightness — no size/rotation
-		slot.MouseEnter:Connect(function()
-			safeTween(slot,       TI.hover, {BackgroundColor3 = THEME.BG_ELEVATED})
-			safeTween(label,      TI.hover, {TextColor3 = THEME.TEXT_PRIMARY})
-			safeTween(slotStroke, TI.hover, {Color = THEME.ACCENT_DIM, Transparency = 0.2})
-		end)
-		slot.MouseLeave:Connect(function()
-			safeTween(slot,       TI.hover, {BackgroundColor3 = THEME.BG_CARD})
-			safeTween(label,      TI.hover, {TextColor3 = THEME.TEXT_SECONDARY})
-			safeTween(slotStroke, TI.hover, {Color = THEME.BORDER, Transparency = 0.5})
-		end)
-
-		-- Per-slot connection tracking for clean teardown
-		local slotConns = {}
-		local function slotConn(signal, fn)
-			local c = signal:Connect(fn)
-			slotConns[#slotConns + 1] = c
-			return c
-		end
-
-		slot.AncestryChanged:Connect(function()
-			if not slot.Parent then
-				for _, c in ipairs(slotConns) do
-					pcall(function() c:Disconnect() end)
-				end
-				table.clear(slotConns)
-				removeTooltip(slot)
-				removeTooltip(star)
+		slot.MouseButton1Click:Connect(function()
+			clickSound:Play()
+			if data.Logic == "Execute" then
+				pcall(function() loadstring(game:HttpGet(data.Script))() end)
+			elseif data.Logic == "Copy" then
+				setclipboard(data.Script)
 			end
 		end)
 
-		-- ── EXECUTION — guarded against double-fire ──
-		local executing = false
+		star.MouseButton1Click:Connect(function()
+	clickSound:Play()
 
-		slotConn(slot.MouseButton1Click, function()
-			if executing then return end
-			executing = true
-			playSound(SND.click)
-			recordHistory(data.Name, data.Logic)
+	favorites[data.Name] = not favorites[data.Name]
+	saveFavorites()
 
-			-- Brief press feedback (background only, no scale)
-			safeTween(slot, TI.button, {BackgroundColor3 = THEME.BG_SURFACE})
-			task.delay(0.12, function()
-				if slot and slot.Parent then
-					safeTween(slot, TI.button, {BackgroundColor3 = THEME.BG_CARD})
-				end
-			end)
-			safeTween(statusDot, TI.button, {BackgroundColor3 = THEME.ACCENT})
-
-			task.spawn(function()
-				local ok, err
-				if data.Logic == "Execute" then
-					ok, err = pcall(function()
-						if not data.Script or data.Script == "" then
-							error("No script URL or content provided")
-						end
-						-- HTTP fetch
-						local httpOk, src = pcall(function()
-							return game:HttpGet(data.Script)
-						end)
-						if not httpOk then
-							error("HTTP request failed: " .. tostring(src))
-						end
-						if not src or src == "" then
-							error("Server returned an empty response")
-						end
-						-- Compile
-						if type(loadstring) ~= "function" then
-							error("loadstring is unavailable in this executor")
-						end
-						local fn, compileErr = loadstring(src)
-						if not fn then
-							error("Compile error: " .. tostring(compileErr))
-						end
-						-- Execute
-						fn()
-					end)
-				elseif data.Logic == "Copy" then
-					ok, err = pcall(function()
-						if type(setclipboard) ~= "function" then
-							error("setclipboard is not supported by this executor")
-						end
-						setclipboard(data.Script)
-					end)
-				else
-					ok  = false
-					err = "Unknown Logic type: " .. tostring(data.Logic)
-				end
-
-				if not slot or not slot.Parent then
-					executing = false
-					return
-				end
-
-				if ok then
-					safeTween(statusDot, TI.button, {BackgroundColor3 = THEME.SUCCESS})
-					notify(
-						data.Logic == "Copy" and "Copied!" or "Executed",
-						data.Name,
-						"success"
-					)
-				else
-					safeTween(statusDot, TI.button, {BackgroundColor3 = THEME.ERROR})
-					local msg = tostring(err or "Unknown error")
-					-- User-friendly error messages
-					if msg:find("setclipboard", 1, true) then
-						notify("Clipboard Unavailable", "Your executor does not support clipboard operations.", "warning")
-					elseif msg:find("HTTP request failed", 1, true) then
-						notify("Network Error", "Could not reach the script server. Check your connection.", "error")
-					elseif msg:find("empty response", 1, true) then
-						notify("Server Error", "The script server returned an empty response.", "error")
-					elseif msg:find("Compile error", 1, true) then
-						notify("Script Error", "Script failed to compile. " .. msg:sub(1, 60), "error")
-					elseif msg:find("loadstring", 1, true) then
-						notify("Executor Error", "loadstring is not available in this executor.", "error")
-					else
-						notify("Error", msg:sub(1, 72), "error")
-					end
-				end
-
-				-- Restore status dot after delay
-				task.wait(2.5)
-				if slot and slot.Parent then
-					safeTween(statusDot, TI.slow, {BackgroundColor3 = THEME.TEXT_MUTED})
-				end
-				executing = false
-			end)
-		end)
-
-		-- ── FAVORITES — guarded, no desync ──
-		local starBusy = false
-
-		slotConn(star.MouseButton1Click, function()
-			if starBusy then return end
-			starBusy = true
-			playSound(SND.star)
-
-			local wasFav = favorites[data.Name] == true
-			favorites[data.Name] = not wasFav
-			saveFavorites()
-			local nowFav = favorites[data.Name] == true
-
-			-- Sync star buttons across ALL pages (no desync)
-			for _, pg in pairs(pages) do
-				local s = pg:FindFirstChild(data.Name)
+	-- update ALL stars for this slot
+	for _,page in pairs(pages) do
+		for _,slot in pairs(page:GetChildren()) do
+			if slot:IsA("TextButton") and slot.Name == data.Name then
+				local s = slot:FindFirstChildOfClass("TextButton")
 				if s then
-					local sb = s:FindFirstChild("StarBtn")
-					if sb then
-						sb.Text       = nowFav and "★" or "☆"
-						sb.TextColor3 = nowFav and THEME.STAR or THEME.TEXT_MUTED
-					end
+					s.Text = favorites[data.Name] and "★" or "☆"
+					s.TextColor3 = favorites[data.Name] and Color3.fromRGB(255,221,0) or Color3.fromRGB(150,150,150)
 				end
 			end
+		end
+	end
 
-			-- Update Favorites page
-			local favPage = pages["Favorites ⭐"]
-			if favPage then
-				-- Always remove existing entry first to prevent duplicates
-				local existingFav = favPage:FindFirstChild(data.Name)
-				if existingFav then existingFav:Destroy() end
+	-- remove old favorite
+	for _,v in pairs(pages["Favorites ⭐"]:GetChildren()) do
+		if v:IsA("TextButton") and v.Name == data.Name then
+			v:Destroy()
+		end
+	end
 
-				if nowFav then
-					buildSlot(favPage)
-					notify("Favorited", data.Name .. " added to Favorites ⭐", "success", 2)
-				else
-					notify("Removed", data.Name .. " removed from Favorites", "info", 2)
-				end
-
-				-- Recount from actual DOM to stay accurate
-				task.defer(function()
-					tabCounts["Favorites ⭐"] = countFavSlots()
-					updateTabCounter("Favorites ⭐")
-				end)
-			end
-
-			task.delay(0.3, function() starBusy = false end)
-		end)
-
-		return slot
-	end -- buildSlot
-
-	-- If already favorited, add to Favorites page immediately
+	-- add new favorite
 	if favorites[data.Name] then
-		local favPage = pages["Favorites ⭐"]
-		if favPage then
-			buildSlot(favPage)
-			task.defer(function()
-				tabCounts["Favorites ⭐"] = countFavSlots()
-				updateTabCounter("Favorites ⭐")
-			end)
-		end
+		buildSlot(pages["Favorites ⭐"])
+	end
+end)
+
+	end -- CLOSE buildSlot
+
+	-- auto load favorite
+	if favorites[data.Name] then
+		buildSlot(pages["Favorites ⭐"])
 	end
 
+	table.insert(allSlots,data)
 	buildSlot(pages[data.Tab])
+
 end
 
--- ╔══════════════════════════╗
--- ║  PUBLIC NOTIFY METHOD    ║
--- ╚══════════════════════════╝
-function MozCraft:Notify(opts)
-	opts = opts or {}
-	notify(
-		opts.Title    or "Notification",
-		opts.Content  or "",
-		opts.Type     or "info",
-		opts.Duration or 3.5
-	)
-end
-
--- ╔══════════════════════════╗
--- ║      SEARCH SYSTEM       ║
--- ║  Instant clear           ║
--- ║  No debounce on backspace║
--- ║  All tabs simultaneously ║
--- ╚══════════════════════════╝
-local lastQuery = ""
-
-local function applySearch(query)
-	query = query:lower()
-	if query == lastQuery then return end
-	lastQuery   = query
-	local empty = (query == "")
-
-	for _, page in pairs(pages) do
-		for _, child in ipairs(page:GetChildren()) do
-			if child:IsA("TextButton") then
-				child.Visible = empty or (child.Name:lower():find(query, 1, true) ~= nil)
+--------------------------------------------------
+-- SEARCH
+--------------------------------------------------
+search:GetPropertyChangedSignal("Text"):Connect(function()
+	local txt = string.lower(search.Text)
+	for _,page in pairs(pages) do
+		for _,slot in pairs(page:GetChildren()) do
+			if slot:IsA("TextButton") then
+				slot.Visible = string.find(string.lower(slot.Name), txt) ~= nil
 			end
 		end
 	end
-end
-
-searchBox:GetPropertyChangedSignal("Text"):Connect(function()
-	local q = searchBox.Text
-	-- Instant clear with no debounce
-	if q == "" then
-		applySearch("")
-		return
-	end
-	-- Instant filter — no debounce delay per spec
-	applySearch(q)
 end)
 
--- ╔══════════════════════════╗
--- ║    KEYBOARD SHORTCUTS    ║
--- ╚══════════════════════════╝
-trackConn(UserInputService.InputBegan:Connect(function(input, gameProcessed)
-	if gameProcessed then return end
+--------------------------------------------------
+-- KEYBIND
+--------------------------------------------------
+UserInputService.InputBegan:Connect(function(input,gpe)
+	if gpe then return end
 	if input.KeyCode == Enum.KeyCode.I then
-		if windowOpen then closeWindow() else openWindow() end
-	elseif input.KeyCode == Enum.KeyCode.Escape and windowOpen then
-		closeWindow()
+		clickSound:Play()
+		main.Visible = not main.Visible
 	end
-end))
-
--- ╔══════════════════════════╗
--- ║   HOLD-TO-CLOSE (5s)     ║
--- ╚══════════════════════════╝
-local holdActive    = false
-local HOLD_TIME     = 5
-local holdRingTween = nil
-
-local function cancelHold()
-	holdActive = false
-	if holdRingTween then
-		pcall(function() holdRingTween:Cancel() end)
-		holdRingTween = nil
-	end
-	safeTween(holdRing, TI.hover, {BackgroundTransparency = 1})
-end
-
-toggleBtn.MouseButton1Down:Connect(function()
-	cancelHold()
-	holdActive = true
-	local startTick = tick()
-	holdRingTween = safeTween(holdRing,
-		TweenInfo.new(HOLD_TIME, Enum.EasingStyle.Linear),
-		{BackgroundTransparency = 0.5}
-	)
-	task.spawn(function()
-		while holdActive do
-			if tick() - startTick >= HOLD_TIME then
-				cancelHold()
-				showConfirm()
-				break
-			end
-			task.wait(0.05)
-		end
-	end)
 end)
 
-trackConn(UserInputService.InputEnded:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.MouseButton1
-		or input.UserInputType == Enum.UserInputType.Touch then
-		if holdActive then cancelHold() end
-	end
-end))
-
--- ╔══════════════════════════╗
--- ║   CANVAS AUTO-RESIZE     ║
--- ╚══════════════════════════╝
-tabLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(refreshTabCanvas)
-
--- ╔══════════════════════════╗
--- ║  VIEWPORT CHANGE WATCH   ║
--- ║  UIScale-based: only     ║
--- ║  scale down if needed    ║
--- ║  Clamp position on resize║
--- ╚══════════════════════════╝
-trackConn(workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
-	applyScale()
-	clampWindow()
-	if currentTab then repositionHighlight(currentTab) end
-	refreshTabCanvas()
-end))
-
--- ╔══════════════════════════╗
--- ║   INIT                   ║
--- ╚══════════════════════════╝
-task.defer(function()
-	task.wait(0.1)  -- Let layout resolve AutomaticSize
-
-	-- Apply initial scale
-	applyScale()
-
-	-- Set initial highlight to Favorites tab
-	local firstBtn = tabButtons["Favorites ⭐"]
-	if firstBtn then
-		tabHighlight.Size     = UDim2.new(0, firstBtn.AbsoluteSize.X, 1, -4)
-		tabHighlight.Position = UDim2.new(0, 2, 0, 2)
-	end
-	refreshTabCanvas()
-	updateScriptCounter()
-end)
-
--- ╔══════════════════════════╗
--- ║       RETURN API         ║
--- ╚══════════════════════════╝
 return MozCraft
